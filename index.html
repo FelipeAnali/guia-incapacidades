@@ -573,7 +573,33 @@
 </style>
 </head>
 <body>
-<div id="raiz"></div>
+<div id="raiz">
+  <!-- Se ve mientras carga la página. React lo reemplaza cuando la app está lista. -->
+  <div id="cargando" style="min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;font-family:-apple-system,system-ui,sans-serif;">
+    <div class="cargando-rueda" aria-hidden="true"></div>
+    <p id="cargando-texto" style="font-size:17px;max-width:340px;">Cargando la página… puede tardar unos segundos con datos móviles.</p>
+  </div>
+</div>
+<style>
+  .cargando-rueda { width: 34px; height: 34px; border-radius: 50%; border: 4px solid rgba(29,90,43,0.2); border-top-color: #1D5A2B; animation: girar 0.9s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+</style>
+<script>
+  /* Si las librerías de internet no cargan (sin señal o bloqueadas), se avisa en vez de dejar la pantalla en blanco. */
+  window.addEventListener('load', function () {
+    var faltan = !window.React || !window.ReactDOM || !window.Babel || !window.JSZip || !window.jspdf || !window.pdfjsLib;
+    setTimeout(function () {
+      var texto = document.getElementById('cargando-texto');
+      if (!texto) return; // la app ya cargó
+      if (faltan || !window.__appIniciada) {
+        texto.innerHTML = '<strong>No pudimos cargar la página.</strong><br>Revisa tu conexión a internet y vuelve a intentarlo. ' +
+          'Si la abriste desde WhatsApp, Facebook o Instagram, ábrela en Chrome (Android) o Safari (iPhone).' +
+          '<br><br><button type="button" onclick="location.reload()" style="font:inherit;font-weight:600;padding:12px 22px;border-radius:12px;border:0;background:#1D5A2B;color:#fff;">Intentar de nuevo</button>';
+        var rueda = document.querySelector('.cargando-rueda'); if (rueda) rueda.style.display = 'none';
+      }
+    }, faltan ? 0 : 8000);
+  });
+</script>
 
 <!-- ============================================================================
      ███ CONFIGURACIÓN ███  —  ESTA ES LA ÚNICA PARTE QUE SE EDITA NORMALMENTE
@@ -949,6 +975,49 @@ function leerSedes(texto) {
 }
 const SEDES = leerSedes(CONFIG.sedesTexto);
 
+/**
+ * ¿La página se abrió dentro de otra app (WhatsApp, Facebook, Instagram…)?
+ * Esos navegadores internos suelen bloquear la descarga del paquete y la cámara.
+ * Devuelve el nombre de la app (o 'otra app') y si es iPhone, o null si es un navegador normal.
+ */
+function detectarNavegadorInterno() {
+  const ua = navigator.userAgent || '';
+  const iphone = /iPhone|iPad|iPod/i.test(ua);
+  const apps = [[/FBAN|FBAV|FB_IAB|FBIOS/i, 'Facebook'], [/Instagram/i, 'Instagram'], [/WhatsApp/i, 'WhatsApp'],
+                [/musical_ly|TikTok|BytedanceWebview/i, 'TikTok'], [/Line\//i, 'LINE'], [/Snapchat/i, 'Snapchat'],
+                [/LinkedInApp/i, 'LinkedIn'], [/Teams\//i, 'Teams']];
+  for (const [patron, nombre] of apps) if (patron.test(ua)) return { app: nombre, iphone };
+  // Android: los navegadores internos dicen "; wv)". iPhone: los internos no dicen "Safari/".
+  if (/Android/i.test(ua) && /; wv\)/.test(ua)) return { app: 'otra app', iphone: false };
+  if (iphone && !/Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)) return { app: 'otra app', iphone: true };
+  return null;
+}
+const NAVEGADOR_INTERNO = detectarNavegadorInterno();
+
+/** Aviso para abrir la página en Chrome o Safari (con botón para copiar el link). */
+function AvisoNavegadorInterno({ motivo }) {
+  const [copiado, setCopiado] = useState(false);
+  if (!NAVEGADOR_INTERNO) return null;
+  const { app, iphone } = NAVEGADOR_INTERNO;
+  const dondeAbrir = iphone ? 'Safari' : 'Chrome';
+  async function copiar() {
+    try { await navigator.clipboard.writeText(location.href); setCopiado(true); } catch { setCopiado(false); }
+  }
+  return (
+    <div className="aviso aviso-alerta" role="status">
+      <strong>Para que funcione bien, ábrela en {dondeAbrir}.</strong>{' '}
+      Estás viendo la página dentro de {app === 'otra app' ? 'otra aplicación' : app} y {motivo}.
+      Toca los tres puntos ({iphone ? '···' : '⋮'}) arriba y elige "Abrir en {dondeAbrir}" o "Abrir en el navegador".
+      Si no aparece, copia el link y pégalo en {dondeAbrir}.
+      <div style={{ marginTop: 10 }}>
+        <button type="button" className="boton boton-tintado boton-chico" onClick={copiar}>
+          {copiado ? 'Link copiado ✓' : 'Copiar link'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Busca un tipo de incapacidad por su código ('018'…). */
 const tipoPorCodigo = (codigo) => CONFIG.tipos.find((t) => t.codigo === codigo) || null;
 /** Busca un documento por su id. */
@@ -974,6 +1043,15 @@ function documentosQueAplican(incapacidad) {
   const ids = [...tipo.documentos];
   if (tipo.preguntaTransito && incapacidad.accidenteTransito) ids.push('furips');
   return ids.map(documentoPorId).filter(Boolean);
+}
+
+/**
+ * Deja solo lo subido en documentos que se piden para esta incapacidad.
+ * Ej.: si quitan "accidente de tránsito", el FURIPS se borra y ya no estorba.
+ */
+function soloDocumentosQueAplican(archivos, incapacidad) {
+  const ids = documentosQueAplican(incapacidad).map((d) => d.id);
+  return Object.fromEntries(Object.entries(archivos || {}).filter(([id]) => ids.includes(id)));
 }
 
 /** ¿El documento ya tiene algo subido (un PDF o al menos una foto)? */
@@ -1205,9 +1283,12 @@ async function paginaTieneContenido(pagina) {
   const texto = await pagina.getTextContent();
   if (texto.items.some((i) => (i.str || '').trim())) return true;
   const OPS = pdfjsLib.OPS;
-  const dibujosDeImagen = [OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.paintJpegXObject].filter(Boolean);
+  // Imágenes y también dibujos (algunos PDF traen el texto convertido en trazos)
+  const dibujos = [OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.paintJpegXObject,
+                   OPS.constructPath, OPS.fill, OPS.eoFill, OPS.stroke, OPS.fillStroke, OPS.eoFillStroke, OPS.shadingFill]
+    .filter((op) => op !== undefined);
   const operaciones = await pagina.getOperatorList();
-  return operaciones.fnArray.some((op) => dibujosDeImagen.includes(op));
+  return operaciones.fnArray.some((op) => dibujos.includes(op));
 }
 
 /** Dibuja una página del PDF en un lienzo con el ancho pedido y lo guarda como JPG. */
@@ -1421,10 +1502,19 @@ function descargarArchivo(blob, nombre) {
   setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
 }
 
-/** Abre un archivo en otra pestaña para revisarlo. */
-function verArchivo(blob) {
+/**
+ * Abre un archivo en otra pestaña para revisarlo.
+ * La pestaña se abre EN EL MISMO TOQUE (antes de armar el PDF) porque Safari del
+ * iPhone bloquea las pestañas que se abren después de esperar. Si aun así el
+ * navegador la bloquea, el archivo se descarga.
+ */
+function abrirPestanaVacia() {
+  try { return window.open('', '_blank'); } catch { return null; }
+}
+function verArchivo(blob, nombre, pestana) {
   const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener');
+  if (pestana && !pestana.closed) pestana.location.href = url;
+  else descargarArchivo(blob, nombre);
   setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
 }
 
@@ -1505,14 +1595,21 @@ function useInactividad(activo, minutos, alVencer) {
     if (!activo) { setSegundosRestantes(null); return; }
     ultimaActividad.current = Date.now();
     const marcarActividad = () => { ultimaActividad.current = Date.now(); setSegundosRestantes(null); };
-    const eventos = ['pointerdown', 'keydown', 'scroll'];
+    // Al volver de la cámara o de elegir archivos la página vuelve a verse: eso también cuenta como uso
+    const alVolverALaPagina = () => { if (document.visibilityState === 'visible') marcarActividad(); };
+    document.addEventListener('visibilitychange', alVolverALaPagina);
+    const eventos = ['pointerdown', 'keydown', 'scroll', 'change', 'focus'];
     eventos.forEach((e) => window.addEventListener(e, marcarActividad, { passive: true }));
     const reloj = setInterval(() => {
       const restanteMs = minutos * 60 * 1000 - (Date.now() - ultimaActividad.current);
       if (restanteMs <= 0) { ultimaActividad.current = Date.now(); alVencerRef.current(); }
       else if (restanteMs <= 60 * 1000) setSegundosRestantes(Math.ceil(restanteMs / 1000));
     }, 1000);
-    return () => { eventos.forEach((e) => window.removeEventListener(e, marcarActividad)); clearInterval(reloj); };
+    return () => {
+      eventos.forEach((e) => window.removeEventListener(e, marcarActividad));
+      document.removeEventListener('visibilitychange', alVolverALaPagina);
+      clearInterval(reloj);
+    };
   }, [activo, minutos]);
 
   return segundosRestantes;
@@ -1636,6 +1733,7 @@ function PantallaInicio({ alComenzar, guardadoDisponible, avisoInicial }) {
     <>
       <main className="contenido pantalla-inicio">
         {avisoInicial && <div className="aviso aviso-alerta" role="status">{avisoInicial}</div>}
+        <AvisoNavegadorInterno motivo="es posible que no te deje tomar fotos ni descargar el paquete" />
 
         <div className="portada">
           <img className="logo logo-blanco" src={LOGO} alt="Supertiendas Cañaveral" />
@@ -1666,6 +1764,7 @@ function PantallaInicio({ alComenzar, guardadoDisponible, avisoInicial }) {
             <div className="fila"><div className="fila-cuerpo"><div className="fila-titulo">Otros según el caso</div>
               <div className="fila-sub">FURIPS si fue accidente de tránsito. Nacido vivo y registro civil en licencias de maternidad y paternidad.</div></div></div>
           </div>
+          <p className="grupo-pie">Funciona mejor en Chrome (Android) o Safari (iPhone). Si abriste el link desde WhatsApp o Facebook, ábrelo en uno de ellos.</p>
         </section>
 
         <section className="grupo">
@@ -1683,6 +1782,14 @@ function PantallaInicio({ alComenzar, guardadoDisponible, avisoInicial }) {
               </label>
             ))}
           </div>
+          {dispositivo === 'prestado' && (
+            <div className="aviso aviso-alerta" role="status" style={{ marginTop: 12, marginBottom: 0 }}>
+              <strong>Ten todo listo antes de empezar.</strong> En un celular o computador prestado no guardamos nada
+              y, si la página queda {CONFIG.minutosInactividad} minutos sin usar, se borra sola. Antes de tocar
+              "Comenzar", ten a mano tu incapacidad, la historia clínica completa y los demás documentos
+              (en papel para tomarles foto, o ya en PDF), y haz todo de una vez.
+            </div>
+          )}
           {!guardadoDisponible && (
             <p className="grupo-pie">En modo incógnito no se puede guardar el avance: tendrás que subir todo de una vez.</p>
           )}
@@ -1855,8 +1962,8 @@ function PantallaIncapacidad({ incapacidadInicial, alGuardar, alVolver, alAbrirT
     if (!inicio) e.fechaInicial = 'Escribe la fecha inicial que dice la incapacidad.';
     else if ((inicio - hoy) / MS_POR_DIA > 30) e.fechaInicial = 'La fecha inicial no puede ser de más de un mes en el futuro. Revísala.';
     else if ((hoy - inicio) / MS_POR_DIA > 365) e.fechaInicial = 'La fecha inicial es de hace más de un año. Revísala.';
-    if (!(numeroDias >= 1 && numeroDias <= 540) || String(numeroDias) !== dias.trim()) e.dias = 'Escribe cuántos días te dieron (solo el número).';
-    if (!codigo) e.diagnostico = 'El código del diagnóstico es una letra y 3 números, por ejemplo J069. Toca "¿Dónde lo encuentro?".';
+    if (!(numeroDias >= 1 && numeroDias <= 540)) e.dias = 'Escribe cuántos días te dieron (solo el número).';
+    if (!codigo) e.diagnostico = 'El código del diagnóstico es una letra seguida de números (a veces termina en X), por ejemplo J069 o A09X. Toca "¿Dónde lo encuentro?".';
     // Prórroga: la anterior debe terminar ANTES de que empiece esta, y sin pasar el máximo de días entre ambas
     if (datosTipo && !datosTipo.esLicencia && prorroga) {
       const anterior = leerFecha(fechaFinalAnterior);
@@ -1933,7 +2040,7 @@ function PantallaIncapacidad({ incapacidadInicial, alGuardar, alVolver, alAbrirT
               {prorroga && (
                 <label className={`fila fila-campo ${errores.fechaFinalAnterior ? 'con-error' : ''}`}>
                   <span className="etiqueta">Fecha final de la incapacidad anterior</span>
-                  <input type="date" value={fechaFinalAnterior} max={hoyTexto()} onChange={(e) => cambiarFechaAnterior(e.target.value)} />
+                  <input type="date" value={fechaFinalAnterior} onChange={(e) => cambiarFechaAnterior(e.target.value)} />
                 </label>
               )}
             </div>
@@ -1968,7 +2075,7 @@ function PantallaIncapacidad({ incapacidadInicial, alGuardar, alVolver, alAbrirT
               <label className={`fila fila-campo ${errores.dias ? 'con-error' : ''}`}>
                 <span className="etiqueta">Días de {datosTipo.esLicencia ? 'licencia' : 'incapacidad'}</span>
                 <input type="text" inputMode="numeric" placeholder="Ej. 3" value={dias} maxLength={3}
-                       onChange={(e) => setDias(e.target.value.replace(/\D/g, ''))} />
+                       onChange={(e) => setDias(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, ''))} />
               </label>
               {/* Fecha final: se calcula sola con los días. Si la cambian, se recalculan los días. */}
               <label className="fila fila-campo">
@@ -2180,7 +2287,14 @@ function TarjetaDocumento({ doc, posicion, entrada, sesion, alGuardar, alQuitarT
 
   /** Abre el documento completo como quedará en el ZIP (si son fotos, arma el PDF). */
   async function ver() {
-    try { verArchivo(await pdfDelDocumento(entrada)); } catch { setError('No pudimos abrir el documento.'); }
+    const pestana = abrirPestanaVacia();
+    try {
+      const blob = await pdfDelDocumento(entrada);
+      verArchivo(blob, nombreArchivoEnZip(sesion.datos.cedula, sesion.incapacidad.tipo, doc), pestana);
+    } catch {
+      if (pestana) pestana.close();
+      setError('No pudimos abrir el documento.');
+    }
   }
 
   const peso = pesoDelDocumento(entrada);
@@ -2334,7 +2448,7 @@ function PantallaDocumentos({ sesion, alGuardarDocumento, alQuitarDocumento, alE
           <p className="grupo-pie">
             {sesion.dispositivoPersonal
               ? `Tu avance se guarda en este dispositivo hasta el ${fechaLegible(sesion.expira)}. Vuelve desde este mismo navegador para continuar.`
-              : 'No guardamos nada en este dispositivo: si cierras la página, tendrás que empezar de nuevo.'}
+              : `No guardamos nada en este dispositivo: si cierras la página o la dejas ${CONFIG.minutosInactividad} minutos sin usar, tendrás que empezar de nuevo. Sube todo de una vez.`}
           </p>
         </section>
 
@@ -2411,6 +2525,7 @@ function PantallaEnvio({ sesion, alVolver, alTerminar }) {
         <h1>Revisa y envía</h1>
         <p className="bajada">Tienes todos los documentos. Solo faltan dos pasos.</p>
         {error && <div className="aviso aviso-error" role="alert">{error}</div>}
+        <AvisoNavegadorInterno motivo="es posible que no te deje descargar el paquete. Ojo: en el otro navegador tendrás que subir los documentos de nuevo" />
 
         <section className="grupo">
           <div className="lista">
@@ -2478,7 +2593,7 @@ function PantallaEnvio({ sesion, alVolver, alTerminar }) {
 /** Tutorial del código de diagnóstico (obligatorio). */
 const TUTORIAL_DIAGNOSTICO = {
   titulo: 'Dónde está el código del diagnóstico',
-  intro: 'Es un código de una letra y 3 números (a veces termina en X). Lo usan todas las EPS y clínicas.',
+  intro: 'Es un código de una letra seguida de números, por ejemplo J069 o A09X (a veces termina en X). Lo usan todas las EPS y clínicas.',
   pasos: [
     { ilustracion: 'diagnostico',
       texto: 'Búscalo en tu incapacidad junto a palabras como "Diagnóstico", "Dx", "CIE-10" o "Código". Casi siempre está cerca de la descripción de la enfermedad.' },
@@ -2760,6 +2875,7 @@ function App() {
             await BD.borrar();
             setAvisoInicial(`Tu avance anterior se borró porque pasaron más de ${CONFIG.diasConservacion} días. Empieza de nuevo.`);
           } else {
+            if (guardada.incapacidad) guardada.archivos = soloDocumentosQueAplican(guardada.archivos, guardada.incapacidad);
             setSesion(guardada);
             // Si la sede guardada ya no está en la lista, o falta algo, se vuelve a esa pantalla
             const datosValidos = guardada.datos && SEDES.includes(guardada.datos.sede);
@@ -2818,7 +2934,7 @@ function App() {
     setPantalla(sesion && sesion.incapacidad ? 'documentos' : 'incapacidad');
   }
   function guardarIncapacidad(incapacidad) {
-    setSesion((s) => ({ ...s, incapacidad }));
+    setSesion((s) => ({ ...s, incapacidad, archivos: soloDocumentosQueAplican(s.archivos, incapacidad) }));
     setPantalla('documentos');
   }
   /** Guarda (o reemplaza) lo subido en un documento. */
@@ -2912,6 +3028,7 @@ function App() {
   );
 }
 
+window.__appIniciada = true;
 ReactDOM.createRoot(document.getElementById('raiz')).render(<App />);
 </script>
 </body>
