@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Guía del colaborador – Envío de incapacidades</title>
+<!--
+  Manual del colaborador de la app "Envío de incapacidades".
+  Cada <section class="pagina"> es una hoja carta (816 × 1056 px = 8,5 × 11 in).
+  Se convierte a PDF con Playwright (scratchpad/hacer_pdf_incapacidades.js).
+  Las imágenes de img/ son capturas de la app con datos y fotos DE PRUEBA.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  @page { size: 8.5in 11in; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #DDE3D8; }
+  body { font-family: 'Nunito', sans-serif; color: #08200F; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  a { color: #1D5A2B; }
+  .pagina {
+    width: 816px; height: 1056px; position: relative; overflow: hidden; background: #FFFFFF;
+    padding: 56px 64px; margin: 0 auto 24px; page-break-after: always;
+  }
+  @media print { html, body { background: #FFFFFF; } .pagina { margin: 0; } }
+
+  /* Encabezado y pie de las páginas interiores */
+  .cabeza { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 2px solid #E3EBDD; }
+  .cabeza img { width: 132px; height: auto; display: block; }
+  .cabeza span, .pie { font-size: 13px; font-weight: 700; color: #4A5A4D; }
+  .pie { position: absolute; left: 64px; right: 64px; bottom: 40px; display: flex; justify-content: space-between; font-size: 12px; }
+
+  /* Etiqueta "Paso N", títulos y textos */
+  .paso { display: inline-block; background: #7DD105; color: #08200F; font-weight: 900; font-size: 13px; padding: 5px 12px; border-radius: 999px; }
+  h1 { margin: 22px 0 6px; font-size: 36px; line-height: 1.1; font-weight: 900; }
+  h2 { margin: 10px 0 8px; font-size: 28px; line-height: 1.12; font-weight: 900; }
+  h3 { margin: 18px 0 8px; font-size: 18px; font-weight: 900; }
+  .bajada { margin: 0 0 16px; font-size: 16px; line-height: 1.55; color: #33443A; max-width: 640px; }
+  p { margin: 0; }
+
+  /* Marco de celular para las capturas */
+  .cel { flex-shrink: 0; border: 6px solid #08200F; border-radius: 26px; overflow: hidden; background: #08200F; }
+  .cel img { width: 100%; height: auto; display: block; }
+  .cel-pie { font-size: 12px; color: #4A5A4D; text-align: center; margin-top: 6px; font-weight: 700; }
+
+  /* Bloques */
+  .fila-pasos { display: flex; gap: 28px; align-items: flex-start; }
+  .texto-pasos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.5; }
+  .caja { background: #F3F6EF; border-radius: 14px; padding: 12px 16px; font-size: 14.5px; line-height: 1.5; }
+  .caja strong { font-weight: 800; }
+  .oscura { background: #08200F; color: #FFFFFF; border-radius: 18px; padding: 16px 22px; }
+  .oscura .titulo { font-size: 19px; font-weight: 900; margin-bottom: 8px; }
+  .oscura p { color: rgba(255,255,255,0.82); font-size: 14px; line-height: 1.5; }
+  ul.lista { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.35; }
+  th { background: #08200F; color: #FFFFFF; text-align: left; padding: 10px 12px; font-weight: 800; }
+  th:first-child { border-radius: 10px 0 0 0; } th:last-child { border-radius: 0 10px 0 0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #DCE5D5; vertical-align: top; }
+  tr:nth-child(even) td { background: #F6F9F3; }
+  td.fuerte { font-weight: 800; }
+  .codigo { display: inline-block; background: #E6ECE1; border-radius: 6px; padding: 1px 6px; font-weight: 800; font-size: 12.5px; }
+
+  /* Portada */
+  .portada { background: #08200F; color: #FFFFFF; padding: 0; }
+  .portada::before { content: ''; position: absolute; right: -340px; top: 250px; width: 620px; height: 860px; border-radius: 50%; border: 56px solid #7DD105; }
+  .portada::after { content: ''; position: absolute; right: -250px; top: 330px; width: 520px; height: 760px; border-radius: 50%; background: #1D5A2B; }
+  .portada > * { position: absolute; z-index: 1; }
+  .portada .numero { width: 36px; height: 36px; border-radius: 50%; background: #7DD105; color: #08200F; font-weight: 900; font-size: 17px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .faq .caja p:first-child { font-weight: 800; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ======================= PÁGINA 1: PORTADA ======================= -->
+<section class="pagina portada">
+  <img src="img/logo_blanco.png" alt="Supertiendas Cañaveral" style="left: 72px; top: 72px; width: 230px;">
+  <div style="left: 72px; top: 230px; width: 350px; display: flex; flex-direction: column; gap: 20px;">
+    <p style="font-size: 15px; font-weight: 800; color: #7DD105; letter-spacing: 0.04em;">Guía del colaborador</p>
+    <h1 style="margin: 0; font-size: 50px; line-height: 1.04; color: #FFFFFF;">Envía tu incapacidad o licencia</h1>
+    <p style="font-size: 18px; line-height: 1.5; color: rgba(255,255,255,0.82);">Desde el celular, en unos 10 minutos. Puedes subir PDF o tomarle fotos a los papeles. Te explicamos cada paso con imágenes de la página.</p>
+  </div>
+  <div style="left: 72px; top: 650px; width: 320px; display: flex; flex-direction: column; gap: 14px; font-size: 17px; font-weight: 700;">
+    <div style="display: flex; gap: 14px; align-items: center;"><span class="numero">1</span>Responde las preguntas iniciales</div>
+    <div style="display: flex; gap: 14px; align-items: center;"><span class="numero">2</span>Escribe tus datos</div>
+    <div style="display: flex; gap: 14px; align-items: center;"><span class="numero">3</span>Llena los datos de tu incapacidad</div>
+    <div style="display: flex; gap: 14px; align-items: center;"><span class="numero">4</span>Sube tus documentos</div>
+    <div style="display: flex; gap: 14px; align-items: center;"><span class="numero">5</span>Descarga y sube tu paquete</div>
+  </div>
+  <div class="cel" style="right: 72px; top: 300px; width: 240px; border: 8px solid #FFFFFF; border-radius: 34px; box-shadow: 0 24px 60px rgba(0,0,0,0.35);">
+    <img src="img/01_inicio.png" alt="Pantalla de inicio de la página de incapacidades">
+  </div>
+  <p style="left: 72px; bottom: 56px; font-size: 13px; color: rgba(255,255,255,0.7);">Gestión Humana — Supertiendas Cañaveral S.A.S.</p>
+</section>
+
+<!-- ======================= PÁGINA 2: ANTES DE EMPEZAR ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía del colaborador</span></div>
+  <h1>Antes de empezar</h1>
+  <p class="bajada">Ten a mano los papeles que te dieron. La página solo te pide los de tu caso.</p>
+
+  <table>
+    <thead><tr><th style="width: 34%">Qué vas a enviar</th><th>Documentos que te pide</th></tr></thead>
+    <tbody>
+      <tr><td class="fuerte"><span class="codigo">018</span> Enfermedad general</td><td>Incapacidad + historia clínica.<br>Si fue <strong>accidente de tránsito</strong>, también el <strong>FURIPS</strong> (lo entrega la clínica).</td></tr>
+      <tr><td class="fuerte"><span class="codigo">019</span> Accidente de trabajo</td><td>Incapacidad + historia clínica. Te pide también la <strong>fecha del accidente</strong>.</td></tr>
+      <tr><td class="fuerte"><span class="codigo">020</span> Licencia de maternidad</td><td>Licencia + historia clínica + certificado de nacido vivo + registro civil del bebé.</td></tr>
+      <tr><td class="fuerte"><span class="codigo">021</span> Licencia de paternidad</td><td>Licencia o incapacidad de la madre + historia clínica del parto + nacido vivo + registro civil + <strong>carta firmada</strong> (la página te la da lista).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="oscura" style="margin-top: 18px;">
+    <p class="titulo">Puedes subir PDF o tomarle fotos</p>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+      <div style="background: rgba(125,209,5,0.16); border-radius: 12px; padding: 12px 14px;">
+        <p style="color: #7DD105; font-weight: 800; font-size: 13px; margin-bottom: 4px;">Con fotos</p>
+        <p>Una foto por página. La página las une en un solo PDF y te muestra cómo quedaron.</p>
+      </div>
+      <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px;">
+        <p style="color: #7DD105; font-weight: 800; font-size: 13px; margin-bottom: 4px;">Con PDF</p>
+        <p>Si pesa mucho o tiene contraseña, la página lo arregla por ti.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 16px; display: flex; gap: 20px; align-items: flex-start;">
+    <div class="cel" style="width: 170px;"><img src="img/15_tutorial_foto.png" alt="Consejos para tomar una buena foto"></div>
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+      <h3 style="margin: 0;">Para que la foto se lea bien</h3>
+      <ul class="lista">
+        <li>Pon el papel <strong>sobre una mesa</strong>, estirado, con buena luz.</li>
+        <li>Tómala <strong>de frente</strong>, desde arriba, que se vea la hoja completa.</li>
+        <li>Sin dedos ni sombras encima, y con el celular quieto.</li>
+        <li>Revisa que se lean <strong>las fechas, los días y el diagnóstico</strong>.</li>
+      </ul>
+      <div class="caja">En la página toca <strong>Cómo tomar una buena foto</strong> para ver estos consejos con dibujos.</div>
+    </div>
+  </div>
+
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span>2 / 6</span></div>
+</section>
+
+<!-- ======================= PÁGINA 3: PASOS 1 Y 2 ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía del colaborador</span></div>
+
+  <div class="fila-pasos" style="margin-top: 26px;">
+    <div class="cel" style="width: 186px;"><img src="img/02_inicio_respuestas.png" alt="Preguntas iniciales respondidas"></div>
+    <div class="texto-pasos">
+      <span class="paso" style="align-self: flex-start;">Paso 1</span>
+      <h2 style="margin: 0;">Responde las preguntas iniciales</h2>
+      <p style="color: #33443A;">Abre el enlace que te envió Gestión Humana y toca <strong>Comenzar</strong> cuando respondas.</p>
+      <div class="caja"><strong>¿El celular es tuyo?</strong> Si dices que sí, tu avance se guarda 7 días y puedes terminar después. Si es prestado, no se guarda nada y la página se borra sola a los 10 minutos sin uso.</div>
+      <div class="caja"><strong>Autorización de datos de salud:</strong> activa el interruptor verde para aceptarla. Sin ella no se puede tramitar la incapacidad.</div>
+    </div>
+  </div>
+
+  <div class="fila-pasos" style="margin-top: 30px;">
+    <div class="cel" style="width: 186px;"><img src="img/03_datos.png" alt="Pantalla Tus datos llena"></div>
+    <div class="texto-pasos">
+      <span class="paso" style="align-self: flex-start;">Paso 2</span>
+      <h2 style="margin: 0;">Escribe tus datos</h2>
+      <p style="color: #33443A;">Llena los cuatro campos y toca <strong>Guardar y seguir</strong>.</p>
+      <ol style="margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px;">
+        <li><strong>Nombre completo</strong>, como aparece en tu cédula.</li>
+        <li><strong>Número de documento</strong>, solo números.</li>
+        <li><strong>Celular</strong> de 10 números: por ahí te escriben si falta algo.</li>
+        <li><strong>Sede o tienda</strong> donde trabajas, de la lista.</li>
+      </ol>
+      <p style="font-size: 14px; color: #4A5A4D;">Si falta algo, la página te muestra en rojo qué corregir.</p>
+    </div>
+  </div>
+
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span>3 / 6</span></div>
+</section>
+
+<!-- ======================= PÁGINA 4: PASO 3 ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía del colaborador</span></div>
+  <div style="margin-top: 24px;">
+    <span class="paso">Paso 3</span>
+    <h2>Llena los datos de tu incapacidad</h2>
+    <p class="bajada">Cópialos tal como aparecen en el papel que te dieron, y toca <strong>Guardar y seguir</strong>.</p>
+  </div>
+
+  <div style="display: flex; gap: 14px;">
+    <div style="width: 212px;"><div class="cel"><img src="img/04_tipo.png" alt="Elegir el tipo"></div><p class="cel-pie">1. Elige qué envías</p></div>
+    <div style="width: 212px;"><div class="cel"><img src="img/05_prorroga_fechas.png" alt="Prórroga y fechas"></div><p class="cel-pie">2. Prórroga y fechas</p></div>
+    <div style="width: 212px;"><div class="cel"><img src="img/07_tutorial_dx.png" alt="Ayuda del código de diagnóstico"></div><p class="cel-pie">3. Código de diagnóstico</p></div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px;">
+    <div class="caja"><strong>Qué envías:</strong> enfermedad general, accidente de trabajo, licencia de maternidad o de paternidad. En enfermedad general te pregunta si fue <strong>accidente de tránsito</strong>.</div>
+    <div class="caja"><strong>¿Es prórroga?</strong> Actívalo si continúa una incapacidad anterior por la misma causa, y escribe la <strong>fecha final de la anterior</strong>.</div>
+    <div class="caja"><strong>Fechas:</strong> escribe la fecha inicial y los días. La <strong>fecha final se calcula sola</strong>; si la cambias, los días se ajustan.</div>
+    <div class="caja"><strong>Diagnóstico:</strong> una letra y 3 números, por ejemplo <strong>J069</strong> (sin punto). Toca <strong>¿Dónde lo encuentro?</strong> si no lo ves.</div>
+  </div>
+
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span>4 / 6</span></div>
+</section>
+
+<!-- ======================= PÁGINA 5: PASO 4 ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía del colaborador</span></div>
+  <div style="margin-top: 22px;">
+    <span class="paso">Paso 4</span>
+    <h2>Sube tus documentos</h2>
+    <p class="bajada" style="margin-bottom: 12px;">En cada documento elige cómo subirlo. Cuando están todos, se activa <strong>Revisar y enviar</strong>.</p>
+  </div>
+
+  <div style="display: flex; gap: 22px; align-items: flex-start;">
+    <div style="display: flex; gap: 12px; flex-shrink: 0;">
+      <div style="width: 150px;"><div class="cel"><img src="img/10_fotos_guardadas.png" alt="Documento con fotos"></div><p class="cel-pie">Fotos por página</p></div>
+      <div style="width: 150px;"><div class="cel"><img src="img/09_se_lee_bien.png" alt="Vista previa ¿Se lee bien?"></div><p class="cel-pie">¿Se lee bien?</p></div>
+    </div>
+    <ul class="lista" style="font-size: 14.5px;">
+      <li><strong>Tomar foto</strong> abre la cámara. Si el papel tiene varias páginas, toca <strong>Tomar otra página</strong> por cada una.</li>
+      <li><strong>Elegir fotos</strong> las toma de tu galería. <strong>Subir PDF</strong> si te lo enviaron por correo.</li>
+      <li>Antes de guardar te pregunta <strong>¿Se lee bien?</strong> Si una foto sale en rojo (borrosa u oscura), mejor tómala de nuevo.</li>
+      <li>Si el PDF <strong>tiene contraseña</strong> y no es tu cédula, escríbela y la página se la quita.</li>
+      <li>En licencia de paternidad toca <strong>Descargar carta para firmar</strong>: imprímela, fírmala y tómale foto.</li>
+    </ul>
+  </div>
+
+  <h3>Si sale un mensaje en rojo</h3>
+  <table>
+    <thead><tr><th style="width: 46%">El mensaje dice</th><th>Qué hacer</th></tr></thead>
+    <tbody>
+      <tr><td class="fuerte">La foto es muy pequeña</td><td>Tómala más cerca, que la hoja llene la pantalla</td></tr>
+      <tr><td class="fuerte">Se ve borrosa / Se ve oscura</td><td>Tómala de nuevo con luz y el celular quieto</td></tr>
+      <tr><td class="fuerte">Esa contraseña no abre el PDF</td><td>Revisa la clave; si no la sabes, tómale fotos</td></tr>
+      <tr><td class="fuerte">Son muchas páginas para 2 MB</td><td>Quita las páginas que sobran o sube el PDF</td></tr>
+      <tr><td class="fuerte">Este mismo archivo ya lo subiste en…</td><td>Cada documento va en su lugar; no repitas</td></tr>
+      <tr><td class="fuerte">No pudimos abrir la imagen</td><td>Usa "Tomar foto" o elige la foto desde la galería</td></tr>
+    </tbody>
+  </table>
+
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span>5 / 6</span></div>
+</section>
+
+<!-- ======================= PÁGINA 6: PASO 5 Y PREGUNTAS ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía del colaborador</span></div>
+
+  <div class="fila-pasos" style="margin-top: 26px;">
+    <div class="cel" style="width: 186px;"><img src="img/12_envio.png" alt="Pantalla Revisa y envía"></div>
+    <div class="texto-pasos">
+      <span class="paso" style="align-self: flex-start;">Paso 5</span>
+      <h2 style="margin: 0;">Descarga y sube tu paquete</h2>
+      <div style="display: flex; gap: 12px; align-items: flex-start;"><span class="numero" style="width: 28px; height: 28px; border-radius: 50%; background: #08200F; color: #FFFFFF; font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">1</span><span><strong>Descargar paquete:</strong> se guarda en Descargas un archivo .zip con tu cédula, el tipo y la fecha.</span></div>
+      <div style="display: flex; gap: 12px; align-items: flex-start;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #08200F; color: #FFFFFF; font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">2</span><span><strong>Abrir página de subida:</strong> elige el .zip que descargaste y escribe tu nombre y apellido. Espera a que diga que se subió.</span></div>
+      <div style="display: flex; gap: 12px; align-items: flex-start;"><span style="width: 28px; height: 28px; border-radius: 50%; background: #08200F; color: #FFFFFF; font-weight: 900; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">3</span><span>Vuelve y toca <strong>Ya lo subí, borrar mis datos</strong>. Si el celular no es tuyo, borra también el .zip de Descargas.</span></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top: 28px;">Preguntas frecuentes</h3>
+  <div class="faq">
+    <div class="caja"><p>¿Mis documentos quedan en internet?</p><p>No. Quedan solo en tu celular hasta que subes el paquete en el paso 5.</p></div>
+    <div class="caja"><p>¿Puedo hacerlo por partes?</p><p>Sí, si dijiste que el celular es tuyo. Vuelve con el mismo enlace y el mismo navegador antes de 7 días.</p></div>
+    <div class="caja"><p>No encuentro el código del diagnóstico</p><p>Búscalo junto a "Diagnóstico", "Dx" o "CIE-10". Si no está, pregúntale al médico o a la EPS.</p></div>
+    <div class="caja"><p>Me equivoqué en un dato</p><p>En la pantalla de documentos toca <strong>Editar</strong> junto a tus datos o a tu incapacidad.</p></div>
+  </div>
+
+  <div class="oscura" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+    <div>
+      <p class="titulo" style="margin-bottom: 4px;">¿Tienes otro problema?</p>
+      <p>Escríbenos por la línea de contacto de Gestión Humana que te compartimos.</p>
+    </div>
+    <img src="img/logo_blanco.png" alt="Supertiendas Cañaveral" style="width: 150px; height: auto; flex-shrink: 0;">
+  </div>
+
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span>6 / 6</span></div>
+</section>
+
+</body>
+</html>

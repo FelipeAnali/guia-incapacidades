@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<!--
+  MANUAL DE LA GESTORA — Panel de incapacidades
+  Supertiendas Cañaveral S.A.S. — Gestión Humana
+  ----------------------------------------------------------------------------
+  Cómo editarlo:
+    - Cada <section class="pagina"> es una hoja carta del PDF.
+    - Pantallazos en img_gestora/ (tomados con la carpeta de ejemplo del panel, datos inventados).
+      Para cambiar uno, reemplaza el archivo con el MISMO nombre.
+    - .pantalla.recorte-alto muestra solo una parte del pantallazo: --alto (alto visible),
+      --x y --y (qué parte se ve, en %).
+    - El PDF se genera con: node hacer_pdf.js  (ver LEEME.md).
+-->
+<title>Manual de la gestora — Panel de incapacidades</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="estilo_manual.css" />
+</head>
+<body>
+
+<!-- ======================= PORTADA ======================= -->
+<section class="pagina portada">
+  <img src="img_gestora/logo_blanco.png" alt="Supertiendas Cañaveral" style="left: 72px; top: 72px; width: 230px;">
+  <div style="left: 72px; top: 210px; width: 400px; display: flex; flex-direction: column; gap: 18px;">
+    <p style="font-size: 16px; font-weight: 800; color: #7DD105;">Guía de la gestora de incapacidades</p>
+    <h1 style="margin: 0; font-size: 52px; line-height: 1.04; color: #FFFFFF;">Panel de incapacidades</h1>
+    <p style="font-size: 19px; line-height: 1.5; color: rgba(255,255,255,0.85);">Revisa lo que envían los colaboradores, copia los datos al ERP, enlaza las prórrogas y envía las alertas de 30 y 150 días.</p>
+  </div>
+  <div class="monitor" style="left: 72px; top: 520px; width: 560px;">
+    <img src="img_gestora/p03_por_revisar.png" alt="Panel de incapacidades: lista Por revisar">
+  </div>
+  <p style="left: 72px; bottom: 56px; font-size: 14px; color: rgba(255,255,255,0.7);">Gestión Humana — Supertiendas Cañaveral S.A.S.</p>
+</section>
+
+<!-- ======================= ANTES DE EMPEZAR ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Antes de empezar</h1>
+  <p class="bajada">El panel es una página web que trabaja sobre la carpeta <strong>Incapacidades</strong> de OneDrive, en tu computador. No tiene servidor: todo queda en esa carpeta.</p>
+  <div class="rejilla3" style="margin-bottom: 16px;">
+    <div class="caja"><strong>Computador</strong><br>Chrome o Edge. En celular no funciona.</div>
+    <div class="caja"><strong>OneDrive</strong><br>La carpeta Incapacidades sincronizada.</div>
+    <div class="caja"><strong>Tu nombre</strong><br>Queda en la bitácora de lo que hagas.</div>
+  </div>
+  <div class="fila">
+    <div style="flex: 1;">
+      <div class="pantalla recorte-alto" style="--alto: 300px; --y: 100%;"><img src="img_gestora/p01b_carpetas.png" alt="Pantalla de inicio y carpetas del panel"></div>
+    </div>
+  </div>
+  <h3 style="margin-top: 18px;">Para abrirlo</h3>
+  <ol class="lista">
+    <li>Abre el link del panel en Chrome o Edge.</li>
+    <li>Escribe <strong>tu nombre</strong> y toca <strong>Elegir carpeta</strong>.</li>
+    <li>Busca la carpeta <strong>Incapacidades</strong> de OneDrive y acepta el permiso para <strong>ver y editar</strong>.</li>
+    <li>La próxima vez solo toca <strong>Abrir “Incapacidades”</strong>. El navegador pide el permiso cada vez: es normal.</li>
+  </ol>
+  <div class="caja" style="margin-top: 14px;"><strong>¿Quieres practicar?</strong> Toca <strong>Abrir carpeta de ejemplo</strong>: trae incapacidades inventadas y no toca nada de tu computador.</div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= TU DÍA DE TRABAJO ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Tu día de trabajo</h1>
+  <p class="bajada">El menú de la izquierda sigue el orden del trabajo. Los números verdes dicen cuántas cosas tienes pendientes.</p>
+  <table>
+    <thead><tr><th style="width: 26%">Menú</th><th>Qué haces ahí</th></tr></thead>
+    <tbody>
+      <tr><td class="fuerte">Bandeja</td><td>Ves los ZIP que llegaron y los <strong>pasas a revisión</strong>.</td></tr>
+      <tr><td class="fuerte">Por revisar</td><td>Abres cada incapacidad, <strong>apruebas o rechazas</strong> los documentos y revisas los datos.</td></tr>
+      <tr><td class="fuerte">Para el ERP</td><td>Las <strong>aprobadas</strong> que faltan por registrar en el ERP.</td></tr>
+      <tr><td class="fuerte">Todas</td><td>Todas las incapacidades, con filtros por estado y tipo, y un buscador.</td></tr>
+      <tr><td class="fuerte">Alertas 30/150</td><td>Cadenas de prórrogas largas: las revisas y <strong>envías la alerta</strong>.</td></tr>
+      <tr><td class="fuerte">Reportes ERP</td><td>Cargas el <strong>reporte de TNL</strong> del ERP y ves la doble verificación.</td></tr>
+    </tbody>
+  </table>
+  <h3 style="margin-top: 20px;">Los estados de una incapacidad</h3>
+  <div class="rejilla">
+    <div class="caja"><strong>Recibida</strong> → llegó y aún no la abres.</div>
+    <div class="caja"><strong>En revisión</strong> → ya la estás revisando.</div>
+    <div class="caja"><strong>Con corrección</strong> → le pediste algo al colaborador y esperas el reenvío.</div>
+    <div class="caja"><strong>Aprobada</strong> → todo bien; falta registrarla en el ERP.</div>
+    <div class="caja"><strong>Registrada en ERP</strong> → ya está en el ERP con su consecutivo.</div>
+    <div class="caja"><strong>No procede</strong> → no se tramita (la cambias tú a mano).</div>
+  </div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= PASO 1: BANDEJA ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <div style="margin-top: 20px;"><span class="paso">Paso 1</span>
+    <h2>Pasa a revisión lo que llegó</h2>
+    <p class="bajada">Los colaboradores suben su ZIP con el link de OneDrive. Aparecen en <strong>Bandeja</strong>.</p>
+  </div>
+  <div class="pantalla"><img src="img_gestora/p02_bandeja.png" alt="Bandeja con incapacidades nuevas"></div>
+  <div class="rejilla" style="margin-top: 16px;">
+    <div class="caja"><strong>Pasar a revisión</strong> (una) o <strong>Pasar las N a revisión</strong> (todas). El panel saca los documentos del ZIP y crea la carpeta de la incapacidad. El ZIP queda en <strong>Recibidos/Procesados</strong>: no se borra nada.</div>
+    <div class="caja"><strong>Reenvío</strong> (etiqueta azul): el colaborador mandó de nuevo la misma incapacidad. Los documentos <strong>iguales</strong> se quedan como estaban y solo vuelve a revisión lo que cambió.</div>
+    <div class="caja"><strong>Mensajes en rojo</strong>: ese archivo no se puede procesar. Por ejemplo, no es un ZIP, está dañado o es de hojas de vida.</div>
+    <div class="caja"><strong>¿Te la mandaron por otro medio?</strong> Toca <strong>Agregar ZIP</strong> o arrástrala a la bandeja. Si no ves algo nuevo, toca <strong>Actualizar</strong>: OneDrive puede tardar unos minutos.</div>
+  </div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= PASO 2: POR REVISAR Y FICHA ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <div style="margin-top: 20px;"><span class="paso">Paso 2</span>
+    <h2>Abre cada incapacidad</h2>
+    <p class="bajada">En <strong>Por revisar</strong> salen primero las que llevan más días esperando. El número se pone <strong>rojo</strong> a los 2 días.</p>
+  </div>
+  <div class="pantalla recorte-alto" style="--alto: 215px;"><img src="img_gestora/p03_por_revisar.png" alt="Lista Por revisar"></div>
+  <h3 style="margin-top: 18px;">La ficha de la incapacidad</h3>
+  <div class="pantalla recorte-alto" style="--alto: 300px;"><img src="img_gestora/p04_ficha.png" alt="Ficha de una incapacidad"></div>
+  <div class="rejilla3" style="margin-top: 14px;">
+    <div class="caja"><strong>Arriba:</strong> estado, avance de documentos y <strong>qué sigue</strong>.</div>
+    <div class="caja"><strong>Izquierda:</strong> documentos, revisiones automáticas y bitácora.</div>
+    <div class="caja"><strong>Derecha:</strong> los datos para el ERP, listos para copiar.</div>
+  </div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= REVISAR DOCUMENTOS ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Revisa los documentos</h1>
+  <p class="bajada">Ábrelos con <strong>Ver</strong> y compáralos con los datos de la derecha. Luego marca cada uno.</p>
+  <div class="pantalla recorte-alto" style="--alto: 330px; --x: 0%;"><img src="img_gestora/p05_rechazar.png" alt="Rechazar un documento con motivo"></div>
+  <div class="rejilla" style="margin-top: 16px;">
+    <div class="caja"><strong>Aprobar</strong>: el documento está bien. Si te equivocas, tócalo otra vez y queda sin revisar.</div>
+    <div class="caja"><strong>Rechazar</strong>: elige un motivo rápido o escribe el tuyo. <strong>El colaborador lo va a leer</strong>: escríbelo claro.</div>
+    <div class="caja">Si dice <strong>“X fotos salieron borrosas u oscuras”</strong>, el colaborador las mandó igual: míralas con cuidado.</div>
+    <div class="caja">Si un documento obligatorio <strong>no llegó</strong>, aparece con una X roja y se incluye en la corrección.</div>
+  </div>
+  <h3 style="margin-top: 18px;">Revisiones automáticas</h3>
+  <p style="font-size: 16px; line-height: 1.5;">El panel hace las cuentas por ti: si la fecha final cuadra con los días, si el diagnóstico tiene formato CIE-10, si la prórroga está dentro de los 30 días, si se cruza con otra incapacidad del mismo colaborador, si empezó hace más de 30 días…</p>
+  <div class="rejilla3" style="margin-top: 10px;">
+    <div class="caja"><span class="punto-color" style="background:#7DD105"></span><strong>Verde</strong>: está bien.</div>
+    <div class="caja"><span class="punto-color" style="background:#E8A317"></span><strong>Amarillo</strong>: revísalo.</div>
+    <div class="caja"><span class="punto-color" style="background:#D93025"></span><strong>Rojo</strong>: corrígelo antes de aprobar.</div>
+  </div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= PEDIR CORRECCIÓN ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Pide la corrección</h1>
+  <p class="bajada">Si rechazaste algo o falta un documento, arriba aparece <strong>Pedir corrección</strong>.</p>
+  <div class="pantalla recorte-alto" style="--alto: 400px; --x: 50%; --y: 30%;"><img src="img_gestora/p06_correccion.png" alt="Mensaje de corrección para WhatsApp"></div>
+  <div class="texto" style="margin-top: 16px;">
+    <div class="paso-linea"><span class="num">1</span><span>El panel arma el mensaje con lo que está mal. <strong>Puedes cambiarlo</strong> antes de enviarlo.</span></div>
+    <div class="paso-linea"><span class="num">2</span><span><strong>Abrir WhatsApp</strong> lo abre con el mensaje listo para el celular del colaborador. <strong>Copiar</strong> te sirve si lo vas a mandar por otro medio.</span></div>
+    <div class="paso-linea"><span class="num">3</span><span>La incapacidad queda <strong>Con corrección</strong>. Cuando el colaborador reenvíe, llega a la Bandeja como <strong>Reenvío</strong> y vuelve a <strong>En revisión</strong>.</span></div>
+  </div>
+  <div class="caja alerta" style="margin-top: 14px;">El mensaje no lleva el diagnóstico ni datos de salud: solo qué documento falta o está mal.</div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= PASO 3: DATOS PARA EL ERP ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <div style="margin-top: 20px;"><span class="paso">Paso 3</span>
+    <h2>Copia los datos al ERP</h2>
+    <p class="bajada">Están en el mismo orden de la pantalla <strong>Tiempos no laborados</strong> del ERP.</p>
+  </div>
+  <div class="fila">
+    <div style="width: 290px;"><div class="pantalla recorte-alto" style="--alto: 430px;"><img src="img_gestora/p07_corregir_dato.png" alt="Datos para el ERP y corrección de un dato"></div></div>
+    <div class="texto" style="font-size: 16px;">
+      <div class="caja"><strong>Toca un dato</strong> y se copia. Pégalo en el ERP con Ctrl + V. <strong>Copiar todo</strong> copia la lista completa.</div>
+      <div class="caja"><strong>Fechas</strong> en formato del ERP (dd/mm/aaaa). La <strong>fecha final</strong> se calcula sola con la inicial y los días.</div>
+      <div class="caja"><strong>Lápiz</strong>: si el documento dice otra cosa (por ejemplo otro diagnóstico o más días), corrígelo. Queda marcado <strong>Corregido</strong>, se ve lo que había puesto el colaborador y queda en la bitácora.</div>
+      <div class="caja">El ERP llena solo el contrato, las horas y la fecha de expedición.</div>
+    </div>
+  </div>
+  <h3 style="margin-top: 18px;">Aprueba y registra</h3>
+  <div class="pantalla recorte-alto" style="--alto: 110px; --y: 9%;"><img src="img_gestora/p09_registrar.png" alt="Marcar registrada con el consecutivo"></div>
+  <ol class="lista" style="margin-top: 12px; font-size: 16px;">
+    <li>Con todos los documentos aprobados, toca <strong>Aprobar incapacidad</strong>.</li>
+    <li>Regístrala en el ERP. Escribe el <strong>consecutivo TNL</strong> que te dio el ERP y toca <strong>Marcar registrada</strong>.</li>
+  </ol>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= PARA EL ERP ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Para el ERP</h1>
+  <p class="bajada">Aquí quedan las incapacidades <strong>aprobadas que aún no registras</strong>. Es tu lista de pendientes del ERP.</p>
+  <div class="pantalla recorte-alto" style="--alto: 300px;"><img src="img_gestora/p10_para_erp.png" alt="Tabla Para el ERP"></div>
+  <div class="rejilla" style="margin-top: 16px;">
+    <div class="caja"><strong>Toca una fila</strong> para abrir la ficha y copiar dato por dato.</div>
+    <div class="caja"><strong>Copiar tabla</strong> la copia completa para pegarla en Excel. <strong>Descargar para Excel</strong> la guarda como archivo.</div>
+    <div class="caja">Si en <strong>Consec. TNL anterior</strong> dice <strong>falta</strong>, es una prórroga sin enlazar: mira la página de prórrogas.</div>
+    <div class="caja">Al marcarla <strong>registrada</strong>, sale de esta lista.</div>
+  </div>
+  <div class="oscura" style="margin-top: 18px;">
+    <p class="titulo">Cuando llegue el plano del ERP</p>
+    <p>Esta tabla se ajustará a las columnas del plano. Así se podrá cargar al ERP de una vez, sin digitar.</p>
+  </div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= PRÓRROGAS ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Prórrogas: ¿de cuál viene?</h1>
+  <p class="bajada">Es el <strong>Consecutivo TNL anterior</strong> del ERP. Con él se suman los días de toda la cadena.</p>
+  <div class="fila" style="gap: 18px;">
+    <div style="width: 330px;"><div class="pantalla"><img src="img_gestora/p11_prorroga_sugerida.png" alt="Consecutivo sugerido"></div></div>
+    <div class="caja" style="flex: 1; font-size: 16px;"><strong>1. Sugerido.</strong> El panel busca la incapacidad que terminó justo antes (hasta 30 días antes) y pre-escribe su consecutivo. También te dice cuántos días suma la cadena. Revisa y toca <strong>Confirmar</strong>.</div>
+  </div>
+  <div class="fila" style="gap: 18px; margin-top: 14px;">
+    <div style="width: 330px;"><div class="pantalla"><img src="img_gestora/p12_prorroga_lista.png" alt="Elegir otra de la lista"></div></div>
+    <div class="caja" style="flex: 1; font-size: 16px;"><strong>2. Elegir otra.</strong> Si la sugerida no es la correcta (por ejemplo, subieron incapacidades viejas), toca <strong>Elegir otra</strong> y escoge la correcta en la lista. Es igual a la lupa del ERP.</div>
+  </div>
+  <div class="fila" style="gap: 18px; margin-top: 14px;">
+    <div style="width: 330px;"><div class="pantalla"><img src="img_gestora/p13_prorroga_manual.png" alt="Escribir los días a mano"></div></div>
+    <div class="caja" style="flex: 1; font-size: 16px;"><strong>3. A mano.</strong> Si el consecutivo no está en el histórico (por ejemplo, porque se borró), toca <strong>Escribir consecutivo</strong>. Luego escribe los <strong>días que llevaba acumulados</strong> la cadena hasta ahí: míralos en el “Total días” del ERP. Quedan guardados para la próxima prórroga.</div>
+  </div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= REPORTES DEL ERP ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Carga el reporte del ERP</h1>
+  <p class="bajada">Con el reporte de <strong>tiempos no laborados (TNL)</strong>, el panel conoce el histórico. Sin él, todo funciona, pero las prórrogas se enlazan a mano.</p>
+  <div class="pantalla recorte-alto" style="--alto: 340px;"><img src="img_gestora/p14_reportes.png" alt="Reportes del ERP y doble verificación"></div>
+  <div class="texto" style="margin-top: 14px; font-size: 16px;">
+    <div class="paso-linea"><span class="num">1</span><span>En el ERP, exporta a Excel el reporte de tiempos no laborados, con <strong>al menos el último año</strong>.</span></div>
+    <div class="paso-linea"><span class="num">2</span><span>Guárdalo en la carpeta <strong>Fuentes</strong>, o toca <strong>Agregar reporte</strong>. Se usa siempre <strong>el más reciente</strong>: si subes uno nuevo, no se duplica nada.</span></div>
+    <div class="paso-linea"><span class="num">3</span><span>Mira la <strong>doble verificación</strong>: compara lo que marcaste “registrada” con lo que dice el ERP. Te muestra las que coinciden, las que tienen <strong>diferencias</strong> (por ejemplo otros días) y las que <strong>no aparecen</strong>.</span></div>
+  </div>
+  <div class="caja" style="margin-top: 12px;">Hazlo <strong>una vez por semana</strong>, o antes de revisar alertas.</div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= ALERTAS ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Alertas de 30 y 150 días</h1>
+  <p class="bajada">Salen las <strong>cadenas de prórrogas seguidas</strong> que pasan 30 días, se acercan a 150 (desde 120) o pasan 150. Las incapacidades sueltas y las licencias no cuentan.</p>
+  <div class="pantalla recorte-alto" style="--alto: 250px;"><img src="img_gestora/p15_alertas.png" alt="Lista de alertas"></div>
+  <div class="fila" style="margin-top: 14px;">
+    <div style="width: 330px;"><div class="pantalla recorte-alto" style="--alto: 300px; --x: 50%; --y: 40%;"><img src="img_gestora/p16_enviar_alerta.png" alt="Revisar y enviar alerta"></div></div>
+    <div class="texto" style="font-size: 16px;">
+      <div class="paso-linea"><span class="num">1</span><span>Toca <strong>Revisar y enviar</strong>. Ves cada incapacidad de la cadena y el total.</span></div>
+      <div class="paso-linea"><span class="num">2</span><span>Si los días están bien, marca <strong>Revisé los días</strong> y toca <strong>Enviar alerta</strong>. Si están mal, toca <strong>No enviar</strong> y escribe por qué.</span></div>
+      <div class="paso-linea"><span class="num">3</span><span><strong>Power Automate</strong> manda el correo. El panel te muestra: <strong>Esperando a Power Automate</strong> → <strong>Correo enviado</strong>, o <strong>No se pudo enviar</strong> con el botón <strong>Reintentar</strong>.</span></div>
+    </div>
+  </div>
+  <div class="caja alerta" style="margin-top: 12px;">Si lleva más de una hora “esperando”, revisa que el flujo de Power Automate esté encendido y que OneDrive esté sincronizado.</div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<!-- ======================= PROBLEMAS FRECUENTES ======================= -->
+<section class="pagina">
+  <div class="cabeza"><img src="img_gestora/logo_canaveral.png" alt="Supertiendas Cañaveral"><span>Guía de la gestora</span></div>
+  <h1>Si algo pasa</h1>
+  <div class="faq" style="margin-top: 16px;">
+    <div class="caja"><p>“El navegador no puede abrir carpetas”</p><p>Usa Chrome o Edge en computador. En Safari, Firefox o el celular no funciona.</p></div>
+    <div class="caja"><p>No veo lo que acaban de enviar</p><p>OneDrive tarda unos minutos en sincronizar. Toca <strong>Actualizar</strong>.</p></div>
+    <div class="caja"><p>“Otra persona cambió esta incapacidad”</p><p>Alguien la editó al mismo tiempo. Ciérrala y ábrela otra vez para ver sus cambios.</p></div>
+    <div class="caja"><p>“No se encontró la carpeta”</p><p>La movieron o le cambiaron el nombre. Toca <strong>Usar otra carpeta</strong> y elígela de nuevo.</p></div>
+    <div class="caja"><p>Me equivoqué al aprobar</p><p>Toca otra vez <strong>Aprobar</strong> en ese documento y queda sin revisar. También puedes cambiar el estado arriba.</p></div>
+    <div class="caja"><p>Una incapacidad no aplica</p><p>Cambia el estado a <strong>No procede</strong>, arriba en la ficha. Queda en la bitácora quién y cuándo.</p></div>
+    <div class="caja"><p>El reporte sale en rojo</p><p>No es el reporte de TNL o le faltan columnas (cédula, consecutivo, concepto, fechas, días).</p></div>
+    <div class="caja"><p>¿Dónde están los archivos?</p><p>En <strong>Colaboradores / cédula_NOMBRE / fecha_tipo</strong>. Lo reemplazado queda en <strong>_anteriores</strong>.</p></div>
+  </div>
+  <div class="oscura" style="margin-top: 20px;">
+    <p class="titulo">Nada se borra solo</p>
+    <p>El panel nunca borra documentos: mueve los ZIP a Procesados y guarda las versiones viejas en _anteriores. Cada cambio queda en la bitácora de la incapacidad.</p>
+  </div>
+  <div class="pie"><span>Gestión Humana — Supertiendas Cañaveral S.A.S.</span><span class="numero-pagina"></span></div>
+</section>
+
+<script>
+  // Pone "N / total" en el pie de cada página (la portada no lleva número)
+  const paginas = document.querySelectorAll('.pagina');
+  document.querySelectorAll('.numero-pagina').forEach((el) => {
+    el.textContent = `${[...paginas].indexOf(el.closest('.pagina')) + 1} / ${paginas.length}`;
+  });
+</script>
+</body>
+</html>

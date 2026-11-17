@@ -1,0 +1,78 @@
+/* =============================================================================
+   ESTILO DE LOS MANUALES DEL CANDIDATO — Supertiendas Cañaveral
+   Hoja carta vertical (816 × 1056 px = 8,5 × 11 pulgadas). Cada <section class="pagina">
+   es una página del PDF. Colores de la marca: tinta #08200F, bosque #1D5A2B, lima #7DD105.
+   Letra grande y frases cortas: se tiene que leer bien en el celular.
+   ============================================================================= */
+@page { size: 8.5in 11in; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #DDE3D8; }
+body { font-family: 'Nunito', sans-serif; color: #08200F; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+a { color: #1D5A2B; font-weight: 800; }
+.pagina { width: 816px; height: 1056px; position: relative; overflow: hidden; background: #FFFFFF;
+          padding: 52px 60px; margin: 0 auto 24px; page-break-after: always; }
+@media print { html, body { background: #FFFFFF; } .pagina { margin: 0; } }
+
+/* Encabezado y pie de las páginas interiores */
+.cabeza { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 2px solid #E3EBDD; }
+.cabeza img { width: 130px; height: auto; display: block; }
+.cabeza span, .pie { font-size: 14px; font-weight: 700; color: #4A5A4D; }
+.pie { position: absolute; left: 60px; right: 60px; bottom: 36px; display: flex; justify-content: space-between; font-size: 13px; }
+
+/* Etiqueta "Paso N", títulos y textos */
+.paso { display: inline-block; align-self: flex-start; background: #7DD105; color: #08200F; font-weight: 900; font-size: 15px; padding: 5px 14px; border-radius: 999px; }
+h1 { margin: 20px 0 6px; font-size: 38px; line-height: 1.1; font-weight: 900; }
+h2 { margin: 8px 0 8px; font-size: 31px; line-height: 1.12; font-weight: 900; }
+h3 { margin: 0 0 6px; font-size: 21px; line-height: 1.2; font-weight: 900; }
+.bajada { margin: 0 0 16px; font-size: 18px; line-height: 1.5; color: #33443A; }
+p { margin: 0; }
+.chico { font-size: 15px; color: #4A5A4D; line-height: 1.45; }
+
+/* Marco de celular para los pantallazos */
+.cel { flex-shrink: 0; border: 6px solid #08200F; border-radius: 26px; overflow: hidden; background: #08200F; }
+.cel img { width: 100%; height: auto; display: block; }
+.recorte { flex-shrink: 0; border: 2px solid #DCE5D5; border-radius: 16px; overflow: hidden; background: #FFFFFF; }
+.recorte img { width: 100%; height: auto; display: block; }
+.cel-pie { font-size: 14px; color: #4A5A4D; text-align: center; margin-top: 6px; font-weight: 800; }
+
+/* Bloques */
+.fila { display: flex; gap: 26px; align-items: flex-start; }
+.texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; font-size: 17px; line-height: 1.5; }
+.caja { background: #F3F6EF; border-radius: 14px; padding: 12px 16px; font-size: 16px; line-height: 1.5; }
+.caja strong, .texto strong { font-weight: 900; }
+.caja.alerta { background: #FFF4DC; }
+.caja.roja { background: #FDECEA; }
+.oscura { background: #08200F; color: #FFFFFF; border-radius: 18px; padding: 18px 22px; }
+.oscura .titulo { font-size: 21px; font-weight: 900; margin-bottom: 6px; }
+.oscura p { color: rgba(255,255,255,0.85); font-size: 16px; line-height: 1.5; }
+ul.lista, ol.lista { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 7px; font-size: 17px; line-height: 1.45; }
+.rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rejilla3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.num { width: 34px; height: 34px; border-radius: 50%; background: #7DD105; color: #08200F; font-weight: 900; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.paso-linea { display: flex; gap: 12px; align-items: flex-start; font-size: 17px; line-height: 1.45; }
+.revisar { background: #FFE07A; color: #08200F; font-weight: 900; padding: 0 5px; border-radius: 4px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 15.5px; line-height: 1.35; }
+th { background: #08200F; color: #FFFFFF; text-align: left; padding: 10px 12px; font-weight: 800; }
+th:first-child { border-radius: 10px 0 0 0; } th:last-child { border-radius: 0 10px 0 0; }
+td { padding: 9px 12px; border-bottom: 1px solid #DCE5D5; vertical-align: top; }
+tr:nth-child(even) td { background: #F6F9F3; }
+td.fuerte { font-weight: 800; }
+.codigo { display: inline-block; background: #E6ECE1; border-radius: 6px; padding: 1px 7px; font-weight: 800; font-size: 14.5px; }
+
+/* Portada */
+.portada { background: #08200F; color: #FFFFFF; padding: 0; }
+.portada::before { content: ''; position: absolute; right: -340px; top: 250px; width: 620px; height: 860px; border-radius: 50%; border: 56px solid #7DD105; }
+.portada::after { content: ''; position: absolute; right: -250px; top: 330px; width: 520px; height: 760px; border-radius: 50%; background: #1D5A2B; }
+.portada > * { position: absolute; z-index: 1; }
+.faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.faq .caja p:first-child { font-weight: 900; margin-bottom: 4px; }
+
+/* Pantallazos de computador (panel de la gestora) */
+.pantalla { border: 2px solid #DCE5D5; border-radius: 14px; overflow: hidden; background: #FFFFFF; box-shadow: 0 6px 18px rgba(8,32,15,0.08); }
+.pantalla img { width: 100%; height: auto; display: block; }
+/* Recorte de un pantallazo: alto fijo y se elige qué parte se ve con --x y --y (object-position) */
+.pantalla.recorte-alto img { height: var(--alto, 300px); object-fit: cover; object-position: var(--x, 50%) var(--y, 0%); }
+.monitor { border: 10px solid #FFFFFF; border-radius: 18px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.35); background: #FFFFFF; }
+.monitor img { width: 100%; display: block; }
+.punto-color { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: 0; margin-right: 6px; }

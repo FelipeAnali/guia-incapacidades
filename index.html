@@ -622,9 +622,9 @@ window.CONFIG = {
   enlacePoliticaDatos: '',
 
   // Manual del colaborador en PDF (botón "Ver manual (PDF)").
-  // Sube el PDF al mismo repositorio de GitHub, al lado de esta página, con este nombre.
+  // Sube el PDF al repositorio de GitHub, en la carpeta manual/, con este nombre.
   // Si se deja vacío (''), el botón no aparece.
-  enlaceManual: 'Manual_colaborador_Envio_de_incapacidades.pdf',
+  enlaceManual: 'manual/Manual_colaborador_Envio_de_incapacidades.pdf',
 
   // Días que se guarda el avance en el celular del colaborador (máximo recomendado: 7).
   diasConservacion: 7,
@@ -641,10 +641,14 @@ window.CONFIG = {
   tamanoMaximoEntradaMB: 30,
   paginasMaximas: 15,
 
-  // PRÓRROGA: máximo de días entre el fin de la incapacidad anterior y el inicio de la
-  // prórroga. Normalmente empieza al día siguiente; con 7, si la anterior terminó el 10,
-  // la prórroga puede empezar a más tardar el 17. Más días → la app dice que no es prórroga.
-  diasMaximosProrroga: 7,
+  // PRÓRROGA: días entre el fin de la incapacidad anterior y el inicio de la prórroga.
+  // Por norma (Decreto 1427 de 2022) sigue siendo prórroga si no hay una interrupción
+  // mayor a 30 días calendario. Lo normal es que empiece al día siguiente:
+  //   1 a diasNormalesProrroga (7)         → se acepta sin decir nada (o un aviso suave si no es al día siguiente)
+  //   8 a diasMaximosProrroga (30)         → se acepta, con un aviso para que revise la fecha
+  //   más de diasMaximosProrroga           → no la deja como prórroga
+  diasNormalesProrroga: 7,
+  diasMaximosProrroga: 30,
 
   // REVISIÓN DE LAS FOTOS (para que no lleguen fotos que no se pueden leer)
   //   ladoMinimo     → el lado más corto de la foto debe medir al menos esto (píxeles).
@@ -896,10 +900,12 @@ const MS_POR_DIA = 24 * 60 * 60 * 1000;
 const LIMITE_BYTES = CONFIG.tamanoMaximoMB * 1024 * 1024;
 // Se deja un margen del 5 % para lo que agrega el PDF al unir las fotos.
 const LIMITE_FOTOS_BYTES = LIMITE_BYTES * 0.95;
-// Máximo de días entre la incapacidad anterior y esta para que cuente como prórroga
-// Máximo de días entre el fin de la incapacidad anterior y el inicio de la prórroga.
-// Ej.: con 7, si la anterior terminó el 10, la prórroga puede empezar a más tardar el 17.
-const DIAS_MAXIMOS_PRORROGA = CONFIG.diasMaximosProrroga || 7;
+// Días entre el fin de la incapacidad anterior y el inicio de la prórroga (ver CONFIG):
+//   hasta DIAS_NORMALES_PRORROGA (7) es lo normal; hasta DIAS_MAXIMOS_PRORROGA (30) se acepta
+//   con aviso; con más días ya no es prórroga (Decreto 1427 de 2022).
+// Ej.: si la anterior terminó el 10, la prórroga puede empezar a más tardar el 9 del mes siguiente.
+const DIAS_NORMALES_PRORROGA = CONFIG.diasNormalesProrroga || 7;
+const DIAS_MAXIMOS_PRORROGA = CONFIG.diasMaximosProrroga || 30;
 
 /** "1 documento" / "3 documentos". */
 function plural(cantidad, singular, pluralTexto) {
@@ -2045,10 +2051,17 @@ function PantallaIncapacidad({ incapacidadInicial, alGuardar, alVolver, alAbrirT
               )}
             </div>
             {errores.fechaFinalAnterior && <p className="grupo-pie error" role="alert">{errores.fechaFinalAnterior}</p>}
-            {/* Aviso suave: dentro del máximo, pero no empieza al día siguiente (lo normal) */}
-            {prorroga && !errores.fechaFinalAnterior && diasEntreProrroga > 1 && diasEntreProrroga <= DIAS_MAXIMOS_PRORROGA && (
+            {/* Aviso suave: dentro de lo normal (2 a 7 días), pero no empieza al día siguiente */}
+            {prorroga && !errores.fechaFinalAnterior && diasEntreProrroga > 1 && diasEntreProrroga <= DIAS_NORMALES_PRORROGA && (
               <p className="grupo-pie" style={{ color: 'var(--alerta-texto)' }}>
                 Normalmente la prórroga empieza al día siguiente ({fechaLarga(sumarDias(fechaFinalAnterior, 1))}). Revisa que las fechas coincidan con tu papel.
+              </p>
+            )}
+            {/* Aviso más fuerte: se acepta (8 a 30 días), pero es raro que pasen tantos días */}
+            {prorroga && !errores.fechaFinalAnterior && diasEntreProrroga > DIAS_NORMALES_PRORROGA && diasEntreProrroga <= DIAS_MAXIMOS_PRORROGA && (
+              <p className="grupo-pie" style={{ color: 'var(--alerta-texto)', fontWeight: 600 }}>
+                Entre la anterior y esta pasan {diasEntreProrroga} días. Es raro que pasen tantos días: revisa que la fecha esté bien.
+                Si está bien, puedes seguir.
               </p>
             )}
             <p className="grupo-pie">
