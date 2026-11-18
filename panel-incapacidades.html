@@ -2110,9 +2110,12 @@ function datosPlano(exp, ctx, idPropio) {
   const faltan = [];
   const esAccidente = exp.codigoTipo === '019';
   const esProrroga = !!exp.prorroga && !tipo.esLicencia;
-  // Número de prórroga = Consec. TNL de la incapacidad anterior (el mismo de la ficha)
+  // Número de prórroga = Consec. TNL de la incapacidad anterior (el mismo de la ficha).
+  // Como el plano se carga directo al ERP, solo vale si la gestora lo CONFIRMÓ, eligió o escribió
+  // en la ficha ("¿De cuál incapacidad viene?"). Un consecutivo solo sugerido por el panel no entra.
   const cadena = esProrroga ? cadenaDeIncapacidad(exp, ctx, idPropio) : null;
-  const consecAnterior = esProrroga ? String((cadena && cadena.consec) || (exp.erp || {}).consecAnterior || '') : '';
+  const sinConfirmar = !!(cadena && cadena.sugerida && cadena.consec);
+  const consecAnterior = esProrroga && !sinConfirmar ? String((cadena && cadena.consec) || (exp.erp || {}).consecAnterior || '') : '';
 
   if (!exp.cedula) faltan.push('cédula');
   if (!fechaPlano(exp.fechaInicial)) faltan.push('fecha inicial');
@@ -2121,7 +2124,8 @@ function datosPlano(exp, ctx, idPropio) {
   if (!exp.diagnostico) faltan.push('diagnóstico');
   if (!tipo.clasePlano) faltan.push('clase de incapacidad');
   if (esAccidente && !fechaPlano(exp.fechaAccidente)) faltan.push('fecha del accidente');
-  if (esProrroga && !consecAnterior) faltan.push('Consec. TNL anterior');
+  if (esProrroga && sinConfirmar) faltan.push(`confirmar el Consec. TNL anterior (sugerido: ${cadena.consec})`);
+  else if (esProrroga && !consecAnterior) faltan.push('Consec. TNL anterior');
 
   // La cédula va como número (así viene en el formato), salvo que empiece por 0
   const cedula = /^[1-9]\d*$/.test(String(exp.cedula || '')) ? Number(exp.cedula) : String(exp.cedula || '');
@@ -2148,7 +2152,7 @@ function datosPlano(exp, ctx, idPropio) {
     0, 0, 0,                                          // W  valor empresa 1 · X valor empresa 2 · Y meses promedio
     '', '', '',                                       // Z  hora inicial · AA hora final · AB EPS/ARL
   ];
-  return { fila, faltan, consecAnterior, sugerido: !!(cadena && cadena.sugerida && cadena.consec) };
+  return { fila, faltan, consecAnterior, sugeridoSinConfirmar: sinConfirmar ? String(cadena.consec) : '' };
 }
 
 /**
@@ -2900,7 +2904,8 @@ function ParaERP({ lista, ctx, onAbrir, avisar }) {
           <li><span className="muestra" style={{ background: '#70AD47' }} /> Fecha del accidente: solo en accidente de trabajo (019).</li>
           <li><span className="muestra" style={{ background: '#FF7C80' }} /> Número de prórroga (Consec. TNL anterior): solo en prórrogas.</li>
         </ul>
-        Si una fila dice <span className="falta">falta</span>, esa incapacidad no entra al plano hasta que lo completes en su ficha.
+        Si una fila dice <span className="falta">falta</span> o <span className="falta">sin confirmar</span>, esa incapacidad no entra al plano
+        hasta que lo completes en su ficha. El Consec. TNL anterior que sugiere el panel hay que confirmarlo (botón “Confirmar”).
       </div>
       <div className="tarjeta tabla-caja">
         {!aprobadas.length ? (
@@ -2917,7 +2922,7 @@ function ParaERP({ lista, ctx, onAbrir, avisar }) {
                   f[2], (e.nombre || '').toUpperCase(), f[5], fechaCelda(f[6]), f[7], fechaCelda(f[8]), f[14], f[15],
                   esAccidente ? (fechaCelda(f[16]) || null) : '—',
                   esProrroga ? 'Sí' : 'No',
-                  esProrroga ? (sinDato(f[17]) ? null : `${f[17]}${p.sugerido ? ' (sugerido)' : ''}`) : '—',
+                  esProrroga ? (p.sugeridoSinConfirmar ? <span className="falta">{p.sugeridoSinConfirmar} sin confirmar</span> : sinDato(f[17]) ? null : f[17]) : '—',
                 ];
                 return (
                   <tr key={x.id} tabIndex={0} onClick={() => onAbrir(x)} onKeyDown={(ev) => ev.key === 'Enter' && onAbrir(x)}

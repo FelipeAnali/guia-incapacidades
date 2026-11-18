@@ -121,11 +121,11 @@ los títulos salen con los mismos colores del formato (`COLORES_PLANO`); la B (c
 | Amarillo (obligatorio) | A Empresa, C Cédula, F Concepto, G Fecha inicial, H Días, I Fecha final, O Diagnóstico, P Clase, T Indicador de prórroga | Empresa `1`; concepto como texto (`018`); fechas `AAAAMMDD`; clase 1 = enf. general (018), 2 = maternidad/paternidad (020, 021), 3 = accidente de trabajo (019); prórroga 0/1 |
 | Azul (siempre 0) | J, L, S, W, X, Y | `0`: el ERP los calcula al importar ("valoriza al importar") |
 | Verde | Q Fecha de accidente | Solo en accidente de trabajo (019) |
-| Rojo | R Número de prórroga | Solo en prórrogas: el Consec. TNL anterior (el mismo de la ficha) |
+| Rojo | R Número de prórroga | Solo en prórrogas: el Consec. TNL anterior **confirmado** por la gestora (uno solo sugerido no entra) |
 | Blanco | B, D, E, K, M, N, U, V, Z, AA, AB | Vacías (las llena el ERP) |
 
 Si a una incapacidad le falta algo obligatorio (diagnóstico, fecha del accidente en 019 o Consec. TNL anterior
-en una prórroga), sale en rojo en la tabla y **no entra al plano** hasta que se complete en la ficha.
+en una prórroga, o un consecutivo sugerido sin confirmar), sale en rojo en la tabla y **no entra al plano** hasta que se complete en la ficha.
 
 ### Reporte del ERP (TNL)
 - Se buscan las columnas por nombre:
