@@ -109,6 +109,23 @@ incapacidad, Fecha de accidente (019), Es prórroga, Consecutivo TNL anterior, T
 
 El ERP llena solo el contrato, las horas y la fecha de expedición.
 
+### Plano del ERP (archivo de carga)
+"Para el ERP" → **Descargar plano (Excel)** genera `Plano_incapacidades_<fecha>.xlsx`, hoja `DATOS`, con las
+28 columnas (A a AB) del formato de carga de TNL del ERP y una fila por incapacidad aprobada sin registrar.
+Código: `COLUMNAS_PLANO`, `datosPlano` y `archivoPlano` en el panel. Configuración: `CONFIG_PANEL.plano`
+(empresa y nombre de la hoja) y `clasePlano` en cada tipo.
+
+| Color en el formato | Columnas | Qué lleva |
+|---|---|---|
+| Amarillo (obligatorio) | A Empresa, C Cédula, F Concepto, G Fecha inicial, H Días, I Fecha final, O Diagnóstico, P Clase, T Indicador de prórroga | Empresa `1`; concepto como texto (`018`); fechas `AAAAMMDD`; clase 1 = enf. general (018), 2 = maternidad/paternidad (020, 021), 3 = accidente de trabajo (019); prórroga 0/1 |
+| Azul (siempre 0) | J, L, S, W, X, Y | `0`: el ERP los calcula al importar ("valoriza al importar") |
+| Verde | Q Fecha de accidente | Solo en accidente de trabajo (019) |
+| Rojo | R Número de prórroga | Solo en prórrogas: el Consec. TNL anterior (el mismo de la ficha) |
+| Blanco | B, D, E, K, M, N, U, V, Z, AA, AB | Vacías (las llena el ERP) |
+
+Si a una incapacidad le falta algo obligatorio (diagnóstico, fecha del accidente en 019 o Consec. TNL anterior
+en una prórroga), sale en rojo en la tabla y **no entra al plano** hasta que se complete en la ficha.
+
 ### Reporte del ERP (TNL)
 - Se buscan las columnas por nombre:
   - Cédula, Nombres y apellidos, Contrato, Consec.TNL, Estado TNL, Concepto, Desc.Concepto;

@@ -90,6 +90,9 @@ Librerías (desde cdnjs): React 18.2.0 UMD, Babel standalone 7.23.5, JSZip 3.10.
   - Power Automate lo toma, manda el correo y lo deja en `Enviadas/` (o en `Errores/`), agregando `estado`,
     `enviado`, `destinatarios` y `error`.
   - "No enviar" se guarda en `control.json.alertas`.
+- **Plano del ERP:** "Para el ERP" descarga el Excel de carga de TNL (hoja `DATOS`, 28 columnas A–AB).
+  Obligatorias (amarillo), siempre 0 (azul: J, L, S, W, X, Y), fecha de accidente solo en 019 (verde: Q),
+  número de prórroga = Consec. TNL anterior solo en prórrogas (rojo: R). Detalle en `docs/COMO_FUNCIONA.md`.
 - **Carpeta de ejemplo:** "Abrir carpeta de ejemplo" crea una carpeta EN MEMORIA con datos inventados y un selector
   Normal / Peor caso / Vacío / Uno. Úsala para probar todo cambio.
 

@@ -22,8 +22,8 @@
        revisiones automáticas (fechas, días, CIE-10, prórroga, cruces),
        copiar dato por dato lo que se digita en el ERP, corregir un dato,
        pedir corrección por WhatsApp, aprobar y marcar "registrada en el ERP".
-    5. PARA EL ERP: tabla de las aprobadas sin registrar (copiar / descargar CSV).
-       Cuando llegue el PLANO del ERP, esta tabla se convierte en el archivo.
+    5. PARA EL ERP: tabla de las aprobadas sin registrar y botón "Descargar plano"
+       que genera el Excel listo para cargar en el ERP (formato en CONFIG_PANEL.plano).
 
     6. REPORTES ERP: lee el reporte de TNL que se deja en "Fuentes" (el más
        reciente), arma las cadenas de prórrogas y hace la doble verificación
@@ -31,7 +31,7 @@
     7. ALERTAS 30/150: cadenas de prórrogas seguidas que pasan 30 días o se
        acercan/pasan 150. Se marcan como gestionadas (queda en control.json).
 
-  PENDIENTE: generar el plano del ERP cuando llegue su formato; leer el maestro.
+  PENDIENTE: leer el maestro de personal.
 
   PRIVACIDAD:
     - Esta página NO tiene servidor. Lee y escribe solo en la carpeta que se
@@ -785,15 +785,25 @@ window.CONFIG_PANEL = {
   diasNormalesProrroga: 7,
   diasMaximosProrroga: 30,
 
+  // PLANO DEL ERP (archivo Excel para cargar los TNL sin digitar). Ver "Para el ERP".
+  //   empresa → columna EMPRESA del plano.
+  //   hoja    → nombre de la hoja del Excel (el formato del ERP usa "DATOS").
+  plano: {
+    empresa: 1,
+    hoja: 'DATOS',
+  },
+
   // Tipos de incapacidad (mismos códigos de la app del colaborador y del ERP).
   //   documentos → los que debe traer siempre; "furips" se suma si fue accidente de tránsito.
   //   esLicencia → las licencias no tienen prórroga.
   //   clase      → lo que se elige en "Clase de incapacidad" del ERP (tomado del reporte de TNL).
+  //   clasePlano → el número de "CLASE DE INCAPACIDAD" en el plano del ERP:
+  //                1 = Enfermedad general, 2 = Maternidad (también paternidad), 3 = Accidente de trabajo.
   tipos: [
-    { codigo: '018', nombre: 'Enfermedad general', clase: 'Enfermedad general', documentos: ['incapacidad', 'historia'] },
-    { codigo: '019', nombre: 'Accidente de trabajo', clase: 'Accidente de trabajo', documentos: ['incapacidad', 'historia'] },
-    { codigo: '020', nombre: 'Licencia de maternidad', clase: 'Maternidad/Paternidad', esLicencia: true, documentos: ['incapacidad', 'historia', 'nacido_vivo', 'registro_civil'] },
-    { codigo: '021', nombre: 'Licencia de paternidad', clase: 'Maternidad/Paternidad', esLicencia: true, documentos: ['incapacidad_madre', 'historia_parto', 'nacido_vivo', 'registro_civil', 'carta_paternidad'] },
+    { codigo: '018', nombre: 'Enfermedad general', clase: 'Enfermedad general', clasePlano: 1, documentos: ['incapacidad', 'historia'] },
+    { codigo: '019', nombre: 'Accidente de trabajo', clase: 'Accidente de trabajo', clasePlano: 3, documentos: ['incapacidad', 'historia'] },
+    { codigo: '020', nombre: 'Licencia de maternidad', clase: 'Maternidad/Paternidad', clasePlano: 2, esLicencia: true, documentos: ['incapacidad', 'historia', 'nacido_vivo', 'registro_civil'] },
+    { codigo: '021', nombre: 'Licencia de paternidad', clase: 'Maternidad/Paternidad', clasePlano: 2, esLicencia: true, documentos: ['incapacidad_madre', 'historia_parto', 'nacido_vivo', 'registro_civil', 'carta_paternidad'] },
   ],
 
   // Documentos que manda el colaborador (id y código = los de la app del colaborador)
@@ -2028,12 +2038,123 @@ function verificarContraReporte(ctx, reporte) {
   return r;
 }
 
-/** Fila de la tabla "Por registrar" (y del futuro plano). */
-const COLUMNAS_TABLA = ['Cédula', 'Nombres y apellidos', 'Concepto', 'Desc. concepto', 'Fecha inicial', 'Fecha final', 'Nro. días', 'Diagnóstico', 'Es prórroga', 'Consec. TNL anterior'];
-function filaTabla(exp) {
-  return [exp.cedula, (exp.nombre || '').toUpperCase(), exp.codigoTipo, nombreTipo(exp.codigoTipo).toUpperCase(), fechaERP(exp.fechaInicial), fechaERP(exp.fechaFinal),
-    String(exp.dias), exp.diagnostico, exp.prorroga ? 'S' : 'N', (exp.erp || {}).consecAnterior || ''];
+/* ---------------------------------------------------------------------------
+   PLANO DEL ERP
+   Archivo Excel con el formato de carga de TNL del ERP: una fila por incapacidad,
+   28 columnas (A a AB) con los mismos títulos del formato. En el formato:
+     - AMARILLO = obligatorio: empresa, cédula, concepto, fechas, días, diagnóstico,
+       clase de incapacidad e indicador de prórroga.
+     - AZUL     = siempre 0: valores de liquidación, base, IBC, valor empresa 1 y 2
+       y meses promedio (el ERP los calcula al importar con "valoriza al importar").
+     - VERDE    = solo si es accidente de trabajo (019): fecha del accidente.
+     - ROJO     = solo si es prórroga: número de prórroga (Consec. TNL anterior).
+     - Las demás van vacías (el ERP las llena solo: contrato, consecutivo TNL, etc.).
+   Fechas en número AAAAMMDD (ej. 20261001). El concepto va como texto ("018").
+   --------------------------------------------------------------------------- */
+const COLUMNAS_PLANO = [
+  'EMPRESA (Obligatorio)',                                   // A
+  'NUMERO CONSECUTIVO DEL PLANO (Obligatorio)',              // B (vacía)
+  'CODIGO DEL EMPLEADO (Obligatorio)',                       // C
+  'NUMERO DE CONTRATO (No obligatorio,  si el empleado tiene 1 contrato activo,  se toma este, de lo contrario genera error)', // D (vacía)
+  'CONSECUTIVO DE TIEMPO NO LABORADO (Obligatorio,  sí es diligenciado con un número que no corresponde  al consecutivo del empleado,el sistema asigna el siguiente al último TNL)', // E (vacía)
+  'CONCEPTO DE TNL (Obligatorio)',                           // F
+  'FECHA INICIAL DE TNL (YYYYMMDD, Obligatorio)',            // G
+  'DIAS DE TNL (Obligatorio, se debe llenar en 1 sí el TNL es en horas)', // H
+  'FECHA FINAL DE TNL (YYYYMMDD, Obligatorio)',              // I
+  'VALOR DE LIQUIDACION (Obligatorio, Incluye 2 decimales  sin comas y puntos. si se activa la casilla de verificación  [valoriza al importar] se calcula automáticamente)', // J (0)
+  'OBSERVACION DE TNL (No obligatorio)',                     // K (vacía)
+  'VALOR BASE DE LIQUIDACION (Obligatorio,  Incluye 2 decimales sin comas y puntos. si se  activa la casilla de verificación  [valoriza al  importar] se calcula automáticamente)', // L (0)
+  'SERIE DE INCAPACIDAD (No obligatorio)',                   // M (vacía)
+  'NUMERO DE INCAPACIDAD (No obligatorio)',                  // N (vacía)
+  'CODIGO DE DIAGNOSTICO INCAPACIDAD (No obligatorio)',      // O
+  'CLASE DE INCAPACIDAD (Obligatorio,  (1=Enfermedad General , 2=Maternidad,  3=Accidente de trabajo, 4=Enfermedad Profesional),   si el concepto esta configurado como [Clase de tiempo no laborado = otros]  se carga automaticamente en este campo [No aplica],indiferentemente que configuración este en el plano)', // P
+  'FECHA DE ACCIDENTE DE TRABAJO DE LA INCAPACIDAD (  YYYYMMDD, Obligatorio sí el tipo de incapacidad es 3)', // Q (solo 019)
+  'NUMERO DE PRORROGA (No obligatorio, (Es obligatorio si el TNL   es de prorroga), sí el TNL a prorrogar no se encuntra en el mismo   plano, se valida contra los TNL ya ingresados en el sistema  (la primera validación es con plano).)', // R (solo prórroga)
+  'INGRESO BASE DE COTIZACION (Obligatorio, Incluye 2 decimales   sin comas y puntos. si se activa  la casilla de verificación [valoriza al   importar]  se calcula automáticamente)', // S (0)
+  'INDICADOR DE PRORROGA (Obligatorio  , (0=No, 1=Si   ))',  // T
+  'HORAS DEL TNL (No obligatorio)',                          // U (vacía)
+  'FECHA DE EXPEDICION DE INCAPACIDAD (  YYYYMMDD,No obligatorio)', // V (vacía)
+  'VALOR EMPRESA 1 (Obligatorio, Valor empresa1, incluye 2 decimales sin punto ni coma ,   Corresponde al pago de la incapacidad por parte de la empresa correspondiente a los   tres primeros días cuando la clase de TNL es enfermedad general (1);   o el primer día, si es accidente de trabajo.  si se activa la casilla de verificación   [valoriza al importar] se calcula automáticamente)', // W (0)
+  'VALOR EMPRESA 2 (  Obligatorio, Valor empresa2,  incluye 2 decimales sin punto ni coma,  Corresponde al pago de la incapacidad por parte de la  empresa correspondiente al tercio cuando la clase de   TNL es enfermedad general (1). si se  activa la  casilla de verificación [valoriza al importar] se calcula automáticamente)', // X (0)
+  'MESES PROMEDIO  INCAPACIDAD (Obligatorio, si se activa   la casilla de verificación [valoriza al importar]   se toma el del concepto o en su defecto    el de parámetro de nómina)', // Y (0)
+  'HORA INICIAL (HHMM, No obligatorio)',                     // Z (vacía)
+  'HORA FINAL (HHMM, No obligatorio)',                       // AA (vacía)
+  'ENTIDAD EPS O ARL (  No obligatorio, Entidad eps para clase de incapacidades 1   o 2(Enfermedad general-Licencia maternidad, paternidad)  o Entidad ARL para clase de incapacidad 3 o   4 (Accidente de trabajo-Enfermedad profesional).  De no ser llenada, se asuma la de el contrato.)', // AB (vacía)
+];
+
+/** Fecha del plano: número AAAAMMDD (ej. 20261001), o '' si no hay fecha. */
+function fechaPlano(texto) {
+  const d = leerFecha(texto);
+  if (!d) return '';
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
+
+/**
+ * Datos de UNA incapacidad para el plano.
+ * Devuelve { fila (28 valores, en el orden de COLUMNAS_PLANO), faltan: [lo que falta], cadena }.
+ * Si falta algo obligatorio, la fila no se incluye en el archivo hasta que se complete en la ficha.
+ */
+function datosPlano(exp, ctx, idPropio) {
+  const tipo = tipoPorCodigo(exp.codigoTipo) || {};
+  const faltan = [];
+  const esAccidente = exp.codigoTipo === '019';
+  const esProrroga = !!exp.prorroga && !tipo.esLicencia;
+  // Número de prórroga = Consec. TNL de la incapacidad anterior (el mismo de la ficha)
+  const cadena = esProrroga ? cadenaDeIncapacidad(exp, ctx, idPropio) : null;
+  const consecAnterior = esProrroga ? String((cadena && cadena.consec) || (exp.erp || {}).consecAnterior || '') : '';
+
+  if (!exp.cedula) faltan.push('cédula');
+  if (!fechaPlano(exp.fechaInicial)) faltan.push('fecha inicial');
+  if (!(Number(exp.dias) >= 1)) faltan.push('días');
+  if (!fechaPlano(exp.fechaFinal)) faltan.push('fecha final');
+  if (!exp.diagnostico) faltan.push('diagnóstico');
+  if (!tipo.clasePlano) faltan.push('clase de incapacidad');
+  if (esAccidente && !fechaPlano(exp.fechaAccidente)) faltan.push('fecha del accidente');
+  if (esProrroga && !consecAnterior) faltan.push('Consec. TNL anterior');
+
+  // La cédula va como número (así viene en el formato), salvo que empiece por 0
+  const cedula = /^[1-9]\d*$/.test(String(exp.cedula || '')) ? Number(exp.cedula) : String(exp.cedula || '');
+  const fila = [
+    CONFIG.plano.empresa,                              // A  EMPRESA
+    '',                                               // B  consecutivo del plano
+    cedula,                                           // C  código del empleado
+    '', '',                                           // D  contrato · E consecutivo TNL (los pone el ERP)
+    exp.codigoTipo,                                   // F  concepto (texto: "018")
+    fechaPlano(exp.fechaInicial),                     // G  fecha inicial
+    Number(exp.dias) || '',                           // H  días
+    fechaPlano(exp.fechaFinal),                       // I  fecha final
+    0,                                                // J  valor de liquidación
+    '',                                               // K  observación
+    0,                                                // L  valor base de liquidación
+    '', '',                                           // M  serie · N número de incapacidad
+    (exp.diagnostico || '').toUpperCase(),            // O  diagnóstico
+    tipo.clasePlano || '',                            // P  clase de incapacidad
+    esAccidente ? fechaPlano(exp.fechaAccidente) : '',// Q  fecha del accidente (solo 019)
+    esProrroga && /^\d+$/.test(consecAnterior) ? Number(consecAnterior) : consecAnterior, // R  número de prórroga
+    0,                                                // S  ingreso base de cotización
+    esProrroga ? 1 : 0,                               // T  indicador de prórroga
+    '', '',                                           // U  horas · V fecha de expedición
+    0, 0, 0,                                          // W  valor empresa 1 · X valor empresa 2 · Y meses promedio
+    '', '', '',                                       // Z  hora inicial · AA hora final · AB EPS/ARL
+  ];
+  return { fila, faltan, consecAnterior, sugerido: !!(cadena && cadena.sugerida && cadena.consec) };
+}
+
+/** Arma el Excel del plano (mismo formato del ERP) con las filas dadas. Devuelve un Blob. */
+function archivoPlano(filas) {
+  const hoja = XLSX.utils.aoa_to_sheet([COLUMNAS_PLANO, ...filas]);
+  // El concepto (columna F) va como TEXTO para que no pierda el 0: "018"
+  filas.forEach((_, i) => {
+    const celda = hoja[XLSX.utils.encode_cell({ r: i + 1, c: 5 })];
+    if (celda) { celda.t = 's'; celda.v = String(celda.v); celda.z = '@'; }
+  });
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, CONFIG.plano.hoja || 'DATOS');
+  return new Blob([XLSX.write(libro, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+/** Columnas que se ven en la pantalla "Para el ERP" (resumen del plano, con títulos cortos). */
+const COLUMNAS_TABLA = ['Cédula', 'Nombre', 'Concepto', 'Fecha inicial', 'Días', 'Fecha final', 'Diagnóstico', 'Clase', 'Fecha accidente', 'Prórroga', 'Consec. anterior'];
 
 /** Mensaje de corrección para WhatsApp. */
 function mensajeCorreccion(exp) {
@@ -2673,23 +2794,25 @@ function FilaIncapacidad({ x, onAbrir }) {
   );
 }
 
-/* ---------- Para el ERP: las aprobadas que faltan por registrar ---------- */
-function ParaERP({ lista, onAbrir, avisar }) {
+/* ---------- Para el ERP: las aprobadas que faltan por registrar → plano ---------- */
+function ParaERP({ lista, ctx, onAbrir, avisar }) {
   const aprobadas = lista.filter((x) => x.expediente && x.expediente.estado === 'aprobada')
     .sort((a, b) => (a.expediente.fechaInicial || '').localeCompare(b.expediente.fechaInicial || ''));
-  const filas = aprobadas.map((x) => filaTabla(x.expediente));
+  // Datos del plano de cada una (y lo que le falta)
+  const planos = aprobadas.map((x) => datosPlano(x.expediente, ctx, x.id));
+  const completas = planos.filter((p) => !p.faltan.length);
+  const incompletas = aprobadas.map((x, i) => ({ x, faltan: planos[i].faltan })).filter((s) => s.faltan.length);
+  const sinDato = (v) => (v === '' || v === null || v === undefined);
+  const fechaCelda = (n) => (n ? fechaERP(`${String(n).slice(0, 4)}-${String(n).slice(4, 6)}-${String(n).slice(6, 8)}`) : '');
 
-  async function copiarTabla() {
-    const texto = [COLUMNAS_TABLA, ...filas].map((f) => f.join('\t')).join('\n');
-    avisar(await copiarTexto(texto) ? `Tabla copiada (${plural(filas.length, 'fila', 'filas')}). Pégala en Excel.` : 'No se pudo copiar', 'ok');
-  }
-  function descargar() {
-    // CSV con punto y coma y BOM, para que el Excel en español lo abra con tildes y columnas bien
-    const celda = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const csv = '﻿' + [COLUMNAS_TABLA, ...filas].map((f) => f.map(celda).join(';')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-    const a = document.createElement('a'); a.href = url; a.download = `incapacidades_para_ERP_${hoyTexto()}.csv`; a.click();
+  function descargarPlano() {
+    if (!completas.length) { avisar('Ninguna está completa: ábrelas y completa lo que falta.', 'error'); return; }
+    const url = URL.createObjectURL(archivoPlano(completas.map((p) => p.fila)));
+    const a = document.createElement('a'); a.href = url; a.download = `Plano_incapacidades_${hoyTexto()}.xlsx`; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
+    avisar(incompletas.length
+      ? `Plano descargado con ${plural(completas.length, 'fila', 'filas')}. Quedaron por fuera ${plural(incompletas.length, 'incapacidad incompleta', 'incapacidades incompletas')}.`
+      : `Plano descargado con ${plural(completas.length, 'fila', 'filas')}. Cárgalo en el ERP y luego márcalas "registradas".`, 'ok');
   }
 
   return (
@@ -2697,32 +2820,52 @@ function ParaERP({ lista, onAbrir, avisar }) {
       <header className="encabezado">
         <div>
           <h1>Para el ERP</h1>
-          <p>{aprobadas.length ? `${plural(aprobadas.length, 'incapacidad aprobada', 'incapacidades aprobadas')} sin registrar. Ábrela para copiar dato por dato, o copia la tabla completa.` : 'No hay incapacidades aprobadas pendientes de registrar.'}</p>
+          <p>{aprobadas.length ? `${plural(aprobadas.length, 'incapacidad aprobada', 'incapacidades aprobadas')} sin registrar. Descarga el plano y cárgalo en el ERP, o ábrela para copiar dato por dato.` : 'No hay incapacidades aprobadas pendientes de registrar.'}</p>
         </div>
         <div className="acciones">
-          <button className="boton boton-secundario" disabled={!filas.length} onClick={copiarTabla}><Icono nombre="copiar" tamano={18} /> Copiar tabla</button>
-          <button className="boton boton-secundario" disabled={!filas.length} onClick={descargar}><Icono nombre="bajar" tamano={18} /> Descargar para Excel</button>
+          <button className="boton boton-principal" disabled={!completas.length} onClick={descargarPlano}><Icono nombre="bajar" tamano={18} /> Descargar plano (Excel)</button>
         </div>
       </header>
       <div className="alerta info-plano">
-        <strong>Cuando llegue el plano del ERP:</strong> esta tabla se ajusta a sus columnas y el botón genera el archivo listo para cargar, sin digitar.
+        <strong>Plano del ERP:</strong> trae las 28 columnas del formato de carga. Los valores de liquidación van en 0
+        (el ERP los calcula al importar), la fecha del accidente solo en accidentes de trabajo y el número de prórroga
+        solo en prórrogas. Las que tienen algo en <span className="falta">rojo</span> no entran al plano hasta que lo completes en la ficha.
       </div>
       <div className="tarjeta tabla-caja">
-        {!filas.length ? (
+        {!aprobadas.length ? (
           <div className="vacio"><div className="icono-caja"><Icono nombre="listo" tamano={28} /></div><h3>Todo registrado</h3><p>Cuando apruebes una incapacidad, aparecerá aquí.</p></div>
         ) : (
           <table className="tabla-erp">
             <thead><tr>{COLUMNAS_TABLA.map((c) => <th key={c} scope="col">{c}</th>)}</tr></thead>
             <tbody>
-              {aprobadas.map((x, i) => (
-                <tr key={x.id} tabIndex={0} onClick={() => onAbrir(x)} onKeyDown={(e) => e.key === 'Enter' && onAbrir(x)}>
-                  {filas[i].map((v, j) => <td key={j} className={j === 1 || j === 3 ? 'texto' : ''}>{v || <span className="falta">falta</span>}</td>)}
-                </tr>
-              ))}
+              {aprobadas.map((x, i) => {
+                const e = x.expediente, p = planos[i], f = p.fila;
+                const esAccidente = e.codigoTipo === '019', esProrroga = f[19] === 1;
+                // Lo que se ve: cédula, nombre, concepto, fechas, días, diagnóstico, clase, accidente, prórroga, consecutivo anterior
+                const celdas = [
+                  f[2], (e.nombre || '').toUpperCase(), f[5], fechaCelda(f[6]), f[7], fechaCelda(f[8]), f[14], f[15],
+                  esAccidente ? (fechaCelda(f[16]) || null) : '—',
+                  esProrroga ? 'Sí' : 'No',
+                  esProrroga ? (sinDato(f[17]) ? null : `${f[17]}${p.sugerido ? ' (sugerido)' : ''}`) : '—',
+                ];
+                return (
+                  <tr key={x.id} tabIndex={0} onClick={() => onAbrir(x)} onKeyDown={(ev) => ev.key === 'Enter' && onAbrir(x)}
+                      title={p.faltan.length ? `Falta: ${p.faltan.join(', ')}` : ''}>
+                    {celdas.map((v, j) => <td key={j} className={j === 1 ? 'texto' : ''}>{sinDato(v) ? <span className="falta">falta</span> : v}</td>)}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
+      {incompletas.length > 0 && (
+        <div className="alerta error" style={{ marginTop: 14 }}>
+          <strong>No entran al plano todavía:</strong>{' '}
+          {incompletas.map(({ x, faltan }) => `${nombreBonito(x.expediente.nombre || x.expediente.cedula)} (falta ${faltan.join(', ')})`).join(' · ')}.
+          Ábrelas y completa el dato.
+        </div>
+      )}
     </>
   );
 }
@@ -3847,7 +3990,7 @@ function App() {
         {vista === 'bandeja' && <Bandeja items={bandeja} cargando={cargando} onRecargar={() => recargar()} onProcesar={(i) => procesar(i)} onProcesarTodos={procesarTodos} procesando={procesando} lote={lote} onAgregar={agregarArchivos} />}
         {vista === 'incapacidades' && <Incapacidades key="revisar" modo="revisar" lista={incapacidades} cargando={cargando} onAbrir={abrir} onRecargar={() => recargar()} />}
         {vista === 'todas' && <Incapacidades key="todas" modo="todas" lista={incapacidades} cargando={cargando} onAbrir={abrir} onRecargar={() => recargar()} />}
-        {vista === 'erp' && <ParaERP lista={incapacidades} onAbrir={abrir} avisar={avisar} />}
+        {vista === 'erp' && <ParaERP lista={incapacidades} ctx={ctx} onAbrir={abrir} avisar={avisar} />}
         {vista === 'alertas' && <Alertas ctx={ctx} usuario={usuario} onAbrir={abrir} onEnviar={enviarAlerta} onDescartar={descartarAlerta} onCancelar={cancelarAlerta} onReintentar={reintentarAlerta} irAReportes={() => setVista('reportes')} />}
         {vista === 'reportes' && <Reportes reporte={reporte} ctx={ctx} cargando={cargando} onRecargar={() => recargar()} onAgregar={agregarReporte} onAbrir={abrir} onAcumulado={acumuladoDesdeReporte} />}
       </main>

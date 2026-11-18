@@ -21,13 +21,14 @@
 - [ ] Construir el flujo (pasos en `COMO_FUNCIONA.md`, sección "Flujo de Power Automate").
 
 ## Siguientes fases
-- [ ] **Plano del ERP:** cuando llegue el formato, convertir "Para el ERP" en el archivo de carga
-  (función `filaTabla` y `COLUMNAS_TABLA` del panel).
+- [ ] **Plano del ERP:** hacer la primera carga real en el ERP con un plano descargado del panel y confirmar
+  que lo acepta (concepto como texto, cédula como número, columnas vacías).
 - [ ] **Leer el maestro de personal** en `Fuentes`, para traer sede, cargo, EPS/ARL y correos.
   Ojo: cruzar la cédula como texto en los dos lados (en el Excel viejo fallaba por número contra texto).
 - [ ] Hacer el manual de Gestión Humana del panel de hojas de vida (está en el otro repositorio).
 
 ## Hecho recientemente
+- Panel: "Para el ERP" descarga el **plano del ERP** en Excel (formato de carga de TNL, 28 columnas).
 - Prórroga: de "máximo 7 días" a "normal 7, máximo 30 con aviso" en las dos páginas.
 - Panel: Reportes ERP (histórico), cadenas de prórrogas, días escritos a mano, doble verificación.
 - Panel: alertas 30/150 con archivos para Power Automate (en cola / enviado / error / reintentar).
