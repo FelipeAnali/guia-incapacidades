@@ -637,6 +637,9 @@
 
   /* Tabla "Para el ERP" */
   .alerta.info-plano { background: var(--tinte-suave); color: var(--texto); margin: 0 0 14px; font-size: 14px; }
+  .leyenda-plano { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 6px 24px; }
+  .leyenda-plano li { display: flex; align-items: center; gap: 8px; }
+  .leyenda-plano .muestra { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; border: 0.5px solid rgba(0,0,0,0.25); }
   .tabla-caja { overflow-x: auto; }
   .tabla-erp { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
   .tabla-erp th { text-align: left; font-weight: 400; font-size: 12px; line-height: 1.25; color: var(--texto-2); padding: 10px 9px 8px; vertical-align: bottom; border-bottom: 0.5px solid var(--separador); }
@@ -2082,6 +2085,14 @@ const COLUMNAS_PLANO = [
   'ENTIDAD EPS O ARL (  No obligatorio, Entidad eps para clase de incapacidades 1   o 2(Enfermedad general-Licencia maternidad, paternidad)  o Entidad ARL para clase de incapacidad 3 o   4 (Accidente de trabajo-Enfermedad profesional).  De no ser llenada, se asuma la de el contrato.)', // AB (vacía)
 ];
 
+/**
+ * Color del título de cada columna (A a AB), igual al formato que mandó nómina:
+ *   O = obligatoria (amarillo) · C = siempre 0 (azul) · A = solo accidente de trabajo (verde)
+ *   P = solo prórroga (rojo)   · - = vacía (blanco)
+ */
+const COLORES_PLANO = 'O-O--OOOOC-C--OOAPCO--CCC---'.split('');
+const COLOR_TITULO = { O: 'FFFFFF00', C: 'FF9BC2E6', A: 'FF70AD47', P: 'FFFF7C80', '-': 'FFFFFFFF' };
+
 /** Fecha del plano: número AAAAMMDD (ej. 20261001), o '' si no hay fecha. */
 function fechaPlano(texto) {
   const d = leerFecha(texto);
@@ -2140,17 +2151,64 @@ function datosPlano(exp, ctx, idPropio) {
   return { fila, faltan, consecAnterior, sugerido: !!(cadena && cadena.sugerida && cadena.consec) };
 }
 
-/** Arma el Excel del plano (mismo formato del ERP) con las filas dadas. Devuelve un Blob. */
-function archivoPlano(filas) {
-  const hoja = XLSX.utils.aoa_to_sheet([COLUMNAS_PLANO, ...filas]);
-  // El concepto (columna F) va como TEXTO para que no pierda el 0: "018"
-  filas.forEach((_, i) => {
-    const celda = hoja[XLSX.utils.encode_cell({ r: i + 1, c: 5 })];
-    if (celda) { celda.t = 's'; celda.v = String(celda.v); celda.z = '@'; }
-  });
-  const libro = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(libro, hoja, CONFIG.plano.hoja || 'DATOS');
-  return new Blob([XLSX.write(libro, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+/**
+ * Arma el Excel del plano con las filas dadas. Devuelve una promesa con el archivo (Blob).
+ * Se arma "a mano" con JSZip (un .xlsx es un ZIP con archivos XML) para que salga
+ * igual al formato del ERP: títulos con sus colores, columnas anchas, título fijo
+ * arriba y el concepto como TEXTO ("018", sin perder el 0). Los números van como número.
+ */
+async function archivoPlano(filas) {
+  const xml = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const letra = (i) => (i < 26 ? '' : String.fromCharCode(64 + Math.floor(i / 26))) + String.fromCharCode(65 + (i % 26));
+  // Textos compartidos (así los guarda Excel)
+  const textos = [], posicion = new Map();
+  const texto = (v) => { if (!posicion.has(v)) { posicion.set(v, textos.length); textos.push(v); } return posicion.get(v); };
+  // Estilos: 0 normal · 1 a 5 títulos (amarillo, azul, verde, rojo, blanco) · 6 texto (@)
+  const ESTILO_TITULO = { O: 1, C: 2, A: 3, P: 4, '-': 5 };
+  const celda = (v, ref, estilo = 0) => {
+    if (v === '' || v === null || v === undefined) return estilo ? `<c r="${ref}" s="${estilo}"/>` : '';
+    if (typeof v === 'number') return `<c r="${ref}"${estilo ? ` s="${estilo}"` : ''}><v>${v}</v></c>`;
+    return `<c r="${ref}" s="${estilo}" t="s"><v>${texto(String(v))}</v></c>`;
+  };
+  const filasXml = [
+    `<row r="1" ht="150" customHeight="1">${COLUMNAS_PLANO.map((titulo, j) => celda(titulo, `${letra(j)}1`, ESTILO_TITULO[COLORES_PLANO[j]])).join('')}</row>`,
+    ...filas.map((fila, i) => `<row r="${i + 2}">${fila.map((v, j) => celda(j === 5 ? String(v) : v, `${letra(j)}${i + 2}`, j === 5 ? 6 : 0)).join('')}</row>`),
+  ];
+  const hoja = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<dimension ref="A1:${letra(COLUMNAS_PLANO.length - 1)}${filas.length + 1}"/>
+<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<sheetFormatPr defaultRowHeight="15"/>
+<cols><col min="1" max="${COLUMNAS_PLANO.length}" width="20" customWidth="1"/></cols>
+<sheetData>${filasXml.join('')}</sheetData>
+</worksheet>`;
+  const relleno = (argb) => `<fill><patternFill patternType="solid"><fgColor rgb="${argb}"/><bgColor indexed="64"/></patternFill></fill>`;
+  const titulo = (fill) => `<xf numFmtId="0" fontId="1" fillId="${fill}" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>`;
+  const estilos = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="10"/><name val="Calibri"/><family val="2"/></font></fonts>
+<fills count="7"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>${['O', 'C', 'A', 'P', '-'].map((k) => relleno(COLOR_TITULO[k])).join('')}</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>${[2, 3, 4, 5, 6].map(titulo).join('')}<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+  const compartidos = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${textos.length}" uniqueCount="${textos.length}">${textos.map((v) => `<si><t xml:space="preserve">${xml(v)}</t></si>`).join('')}</sst>`;
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/></Types>`);
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xml(CONFIG.plano.hoja || 'DATOS')}" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/></Relationships>`);
+  zip.file('xl/worksheets/sheet1.xml', hoja);
+  zip.file('xl/styles.xml', estilos);
+  zip.file('xl/sharedStrings.xml', compartidos);
+  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
 /** Columnas que se ven en la pantalla "Para el ERP" (resumen del plano, con títulos cortos). */
@@ -2352,6 +2410,12 @@ async function crearCarpetaDeEjemplo(modo) {
     await sembrar(camilo, 5, 'correccion', { incapacidad: 'aprobado', historia: ['rechazado', 'No se lee bien: la foto salió borrosa en la segunda hoja'] });
     await sembrar({ cedula: '1193456712', nombre: 'Daniela Ospina', tipo: '018', ini: 7, dias: 5, diagnostico: 'A090', sede: 'CAÑAVERAL VALLE DEL LILI' }, 4, 'aprobada');
     await sembrar({ cedula: '1130654987', nombre: 'Jhon Fredy Cano', tipo: '021', ini: 8, dias: 14, diagnostico: 'Z390', sede: 'CAÑAVERAL JAMUNDÍ' }, 3, 'aprobada');
+    // Para probar el plano del ERP: accidente de trabajo (columna Q), prórroga enlazada (columna R)
+    // y una prórroga sin consecutivo anterior (no entra al plano hasta completarla)
+    await sembrar({ cedula: '1005987321', nombre: 'Natalia Andrea Muñoz', tipo: '019', ini: 6, dias: 4, accidente: 1, diagnostico: 'S610', sede: 'CEDI' }, 3, 'aprobada');
+    await sembrar({ cedula: '94456789', nombre: 'Carlos Mario Henao', tipo: '019', ini: 3, dias: 15, accidente: 51, diagnostico: 'S822', sede: 'CEDI', prorroga: true, finAnterior: sumarDias(hoyTexto(), -4) },
+                  2, 'aprobada', {}, '', {});
+    await sembrar({ cedula: '1151234567', nombre: 'Paola Andrea Lozano', tipo: '018', ini: 5, dias: 6, diagnostico: 'M545', sede: 'CAÑAVERAL PANCE', prorroga: true, finAnterior: sumarDias(hoyTexto(), -6) }, 2, 'aprobada');
 
     // Lo que acaba de llegar a la bandeja
     const prorroga = { ...martha, ini: 10, dias: 7, prorroga: true, finAnterior: sumarDias(hoyTexto(), -11) };
@@ -2805,9 +2869,11 @@ function ParaERP({ lista, ctx, onAbrir, avisar }) {
   const sinDato = (v) => (v === '' || v === null || v === undefined);
   const fechaCelda = (n) => (n ? fechaERP(`${String(n).slice(0, 4)}-${String(n).slice(4, 6)}-${String(n).slice(6, 8)}`) : '');
 
-  function descargarPlano() {
+  async function descargarPlano() {
     if (!completas.length) { avisar('Ninguna está completa: ábrelas y completa lo que falta.', 'error'); return; }
-    const url = URL.createObjectURL(archivoPlano(completas.map((p) => p.fila)));
+    let archivo;
+    try { archivo = await archivoPlano(completas.map((p) => p.fila)); } catch { avisar('No se pudo armar el plano. Intenta de nuevo.', 'error'); return; }
+    const url = URL.createObjectURL(archivo);
     const a = document.createElement('a'); a.href = url; a.download = `Plano_incapacidades_${hoyTexto()}.xlsx`; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
     avisar(incompletas.length
@@ -2827,9 +2893,14 @@ function ParaERP({ lista, ctx, onAbrir, avisar }) {
         </div>
       </header>
       <div className="alerta info-plano">
-        <strong>Plano del ERP:</strong> trae las 28 columnas del formato de carga. Los valores de liquidación van en 0
-        (el ERP los calcula al importar), la fecha del accidente solo en accidentes de trabajo y el número de prórroga
-        solo en prórrogas. Las que tienen algo en <span className="falta">rojo</span> no entran al plano hasta que lo completes en la ficha.
+        <strong>Plano del ERP</strong> (28 columnas, igual al formato de carga):
+        <ul className="leyenda-plano">
+          <li><span className="muestra" style={{ background: '#FFFF00' }} /> Obligatorias: se llenan con los datos de la incapacidad.</li>
+          <li><span className="muestra" style={{ background: '#9BC2E6' }} /> Siempre en 0: el ERP calcula los valores al importar.</li>
+          <li><span className="muestra" style={{ background: '#70AD47' }} /> Fecha del accidente: solo en accidente de trabajo (019).</li>
+          <li><span className="muestra" style={{ background: '#FF7C80' }} /> Número de prórroga (Consec. TNL anterior): solo en prórrogas.</li>
+        </ul>
+        Si una fila dice <span className="falta">falta</span>, esa incapacidad no entra al plano hasta que lo completes en su ficha.
       </div>
       <div className="tarjeta tabla-caja">
         {!aprobadas.length ? (

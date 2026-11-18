@@ -22,7 +22,9 @@
 
 ## Siguientes fases
 - [ ] **Plano del ERP:** hacer la primera carga real en el ERP con un plano descargado del panel y confirmar
-  que lo acepta (concepto como texto, cédula como número, columnas vacías).
+  que lo acepta (concepto como texto, cédula como número, columnas vacías). En la carpeta de ejemplo hay un caso
+  de cada uno: enfermedad general, licencia, accidente de trabajo, prórroga de accidente y una prórroga sin
+  consecutivo anterior (que no entra al plano).
 - [ ] **Leer el maestro de personal** en `Fuentes`, para traer sede, cargo, EPS/ARL y correos.
   Ojo: cruzar la cédula como texto en los dos lados (en el Excel viejo fallaba por número contra texto).
 - [ ] Hacer el manual de Gestión Humana del panel de hojas de vida (está en el otro repositorio).

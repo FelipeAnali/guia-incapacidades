@@ -113,7 +113,8 @@ El ERP llena solo el contrato, las horas y la fecha de expedición.
 "Para el ERP" → **Descargar plano (Excel)** genera `Plano_incapacidades_<fecha>.xlsx`, hoja `DATOS`, con las
 28 columnas (A a AB) del formato de carga de TNL del ERP y una fila por incapacidad aprobada sin registrar.
 Código: `COLUMNAS_PLANO`, `datosPlano` y `archivoPlano` en el panel. Configuración: `CONFIG_PANEL.plano`
-(empresa y nombre de la hoja) y `clasePlano` en cada tipo.
+(empresa y nombre de la hoja) y `clasePlano` en cada tipo. El archivo se arma con JSZip (sin otra librería) y
+los títulos salen con los mismos colores del formato (`COLORES_PLANO`); la B (consecutivo del plano) va vacía.
 
 | Color en el formato | Columnas | Qué lleva |
 |---|---|---|
