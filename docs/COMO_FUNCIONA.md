@@ -138,8 +138,11 @@ Configuración: `CONFIG_PANEL.radicacion`.
 
 - **Entidad:** accidente de trabajo (019) → **ARL**; las demás → **EPS**. Sale del **maestro** cruzando la cédula
   como texto. Si no está, la gestora la escribe a mano (`radicacion.entidad`).
-- **Maestro:** se buscan las columnas por nombre (cédula / identificación / documento; EPS / entidad promotora
-  de salud; ARL / riesgos laborales). Si el archivo tiene más de `diasMaestroViejo` (8) días, el panel pide
+- **Maestro:** el del ERP es `NomProConContratosGrid` (cédula en "Empleado", "Descripcion eps", "Descripcion ARL",
+  Nombres + Apellido 1 + Apellido 2, "Telefono del contacto", "Email del contacto", "Descripcion C.O." y "Fecha retiro").
+  Se buscan las columnas por nombre, así que también sirven otros títulos (cédula / identificación / documento;
+  EPS / entidad promotora de salud; ARL / riesgos laborales) y se prefiere la descripción, no el "Id" (NIT).
+  Si el colaborador no escribió celular, el WhatsApp del rechazo usa el teléfono del maestro. Si el archivo tiene más de `diasMaestroViejo` (8) días, el panel pide
   actualizarlo (se actualiza cada viernes).
 - **Plazo para radicar:** desde que se registró en el ERP: `diasPlazo` (30); EPS que contiene "SURA": 15.
   Licencia de paternidad (021): 14 días desde que **inicia** la licencia.

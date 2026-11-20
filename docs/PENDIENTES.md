@@ -21,8 +21,8 @@
 - [ ] Construir el flujo (pasos en `COMO_FUNCIONA.md`, sección "Flujo de Power Automate").
 
 ## Radicación EPS / ARL
-- [ ] **Maestro real:** dejar el maestro en `Fuentes` y confirmar que el panel encuentra las columnas de cédula,
-  EPS y ARL (si no, ajustar `esColumnaCedula` / `esColumnaEPS` / `esColumnaARL`).
+- [x] **Maestro real** (`NomProConContratosGrid`): probado. Cédula = columna "Empleado", EPS = "Descripcion eps",
+  ARL = "Descripcion ARL"; también lee nombre, teléfono, correo, sede y fecha de retiro.
 - [ ] Confirmar con Camila:
   - [ ] el plazo para radicar (hoy: Sura 15 días, otras EPS 30, paternidad 14 desde que inicia);
   - [ ] cuántos días tiene el colaborador para reenviar después de un rechazo (hoy 5: `diasReenvio`);

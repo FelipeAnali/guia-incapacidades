@@ -2126,17 +2126,33 @@ function verificarContraReporte(ctx, reporte) {
        intentos: [ ... ]             → radicaciones anteriores que fueron rechazadas }
    ========================================================================== */
 
-/** Columnas que se buscan en el maestro (se aceptan varios nombres). */
-const esColumnaCedula = (t) => ['cedula', 'numerocedula', 'cedulaempleado', 'identificacion', 'numeroidentificacion', 'nroidentificacion',
-  'documento', 'numerodocumento', 'nrodocumento', 'nodocumento', 'numdocumento', 'documentoidentidad', 'cc'].includes(t) || /^(cedula|identificacion|nrodoc|numerodedocumento)/.test(t);
+/**
+ * Columnas que se buscan en el maestro (se aceptan varios nombres).
+ * El maestro del ERP (NomProConContratosGrid) trae: Tipo identificación, EMPLEADO (= la cédula), Nombres,
+ * Apellido 1, Apellido 2, Descripcion del cargo, Email del contacto, Telefono del contacto, Descripcion C.O. (sede),
+ * Id eps, DESCRIPCION EPS, Id ARL, DESCRIPCION ARL, pensión y Fecha retiro.
+ */
+const esColumnaCedula = (t) => !/^tipo/.test(t) && (['cedula', 'empleado', 'codigoempleado', 'codigodelempleado', 'numerocedula', 'cedulaempleado', 'identificacion',
+  'numeroidentificacion', 'nroidentificacion', 'documento', 'numerodocumento', 'nrodocumento', 'nodocumento', 'numdocumento', 'documentoidentidad', 'cc'].includes(t)
+  || /^(cedula|identificacion|nrodoc|numerodedocumento)/.test(t));
 const esColumnaEPS = (t) => t === 'eps' || /eps|entidadpromotora|entidaddesalud|saludentidad/.test(t);
 const esColumnaARL = (t) => t === 'arl' || /arl|riesgoslaborales|riesgosprofesionales/.test(t);
-const esColumnaNombre = (t) => /^(nombre|nombres|nombrecompleto|nombresyapellidos|empleado|nombreempleado)$/.test(t);
-/** Entre varias columnas que sirven, prefiere la del NOMBRE de la entidad (no la del código o el NIT). */
+const esColumnaNombre = (t) => /^(nombre|nombrecompleto|nombresyapellidos|nombreempleado|nombredelempleado)$/.test(t);
+const esColumnaNombres = (t) => t === 'nombres';
+const esColumnaApellido1 = (t) => /^(apellido1|primerapellido|apellido)$/.test(t);
+const esColumnaApellido2 = (t) => /^(apellido2|segundoapellido)$/.test(t);
+const esColumnaTelefono = (t) => /telefono|celular|movil/.test(t);
+const esColumnaCorreo = (t) => /email|correo|mail/.test(t);
+const esColumnaSede = (t) => /^(sede|descripcionco|centrodeoperacion|centrooperacion|co)$/.test(t);
+const esColumnaRetiro = (t) => /retiro/.test(t);
+/**
+ * Entre varias columnas que sirven, prefiere la del NOMBRE de la entidad ("Descripcion eps"),
+ * no la del código o el NIT ("Id eps").
+ */
 function mejorColumna(titulos, sirve) {
   const opciones = titulos.map((t, j) => ({ t, j })).filter((o) => sirve(o.t));
   if (!opciones.length) return undefined;
-  const nombre = opciones.find((o) => !/cod|nit|id$|numero|nro/.test(o.t));
+  const nombre = opciones.find((o) => !/^(id|cod|nit|numero|nro)|(id|cod|nit)$/.test(o.t));
   return (nombre || opciones[0]).j;
 }
 
@@ -2167,19 +2183,34 @@ async function leerMaestro(raiz, cache) {
       const filas = XLSX.utils.sheet_to_json(libro.Sheets[nombreHoja], { header: 1, raw: true, defval: '' });
       for (let i = 0; i < Math.min(15, filas.length); i++) {
         const titulos = filas[i].map(normalizarColumna);
-        const col = { cedula: mejorColumna(titulos, esColumnaCedula), eps: mejorColumna(titulos, esColumnaEPS), arl: mejorColumna(titulos, esColumnaARL), nombre: mejorColumna(titulos, esColumnaNombre) };
+        const col = { cedula: mejorColumna(titulos, esColumnaCedula), eps: mejorColumna(titulos, esColumnaEPS), arl: mejorColumna(titulos, esColumnaARL),
+                      nombre: mejorColumna(titulos, esColumnaNombre), nombres: mejorColumna(titulos, esColumnaNombres),
+                      apellido1: mejorColumna(titulos, esColumnaApellido1), apellido2: mejorColumna(titulos, esColumnaApellido2),
+                      telefono: mejorColumna(titulos, esColumnaTelefono), correo: mejorColumna(titulos, esColumnaCorreo),
+                      sede: mejorColumna(titulos, esColumnaSede), retiro: mejorColumna(titulos, esColumnaRetiro) };
         if (col.cedula === undefined || col.eps === undefined) continue;
         const porCedula = new Map();
         const texto = (f, c) => (col[c] === undefined ? '' : String(f[col[c]] ?? '').replace(/\s+/g, ' ').trim().toUpperCase());
+        let retirados = 0;
         for (let k = i + 1; k < filas.length; k++) {
           const cedula = textoLlave(filas[k][col.cedula]);
           if (!cedula) continue;
-          porCedula.set(cedula, { eps: texto(filas[k], 'eps'), arl: texto(filas[k], 'arl'), nombre: texto(filas[k], 'nombre') });
+          // El nombre viene en una columna, o en Nombres + Apellido 1 + Apellido 2
+          const nombre = texto(filas[k], 'nombre') || [texto(filas[k], 'nombres'), texto(filas[k], 'apellido1'), texto(filas[k], 'apellido2')].filter(Boolean).join(' ');
+          const retiro = col.retiro !== undefined && String(filas[k][col.retiro] ?? '').trim() !== '';
+          if (retiro) retirados++;
+          const previo = porCedula.get(cedula);
+          if (previo && !previo.retiro && retiro) continue;    // si tiene dos contratos, gana el activo
+          porCedula.set(cedula, { eps: texto(filas[k], 'eps'), arl: texto(filas[k], 'arl'), nombre,
+                                  telefono: textoLlave(filas[k][col.telefono] ?? ''), correo: String(col.correo === undefined ? '' : filas[k][col.correo] ?? '').trim(),
+                                  sede: texto(filas[k], 'sede'), retiro });
         }
         const r = { archivo: elegido.nombre, modificado: elegido.archivo.lastModified, porCedula, total: porCedula.size,
                     sinEPS: [...porCedula.values()].filter((v) => !v.eps).length, avisos: [],
-                    columnas: { cedula: filas[i][col.cedula], eps: filas[i][col.eps], arl: col.arl === undefined ? '' : filas[i][col.arl] } };
+                    columnas: { cedula: filas[i][col.cedula], eps: filas[i][col.eps], arl: col.arl === undefined ? '' : filas[i][col.arl],
+                                telefono: col.telefono === undefined ? '' : filas[i][col.telefono] } };
         if (col.arl === undefined) r.avisos.push('El maestro no trae una columna de ARL: los accidentes de trabajo saldrán "sin ARL".');
+        if (retirados) r.avisos.push(`${plural(retirados, 'persona tiene', 'personas tienen')} fecha de retiro.`);
         return r;
       }
     }
@@ -2195,9 +2226,9 @@ const diasDelMaestro = (m) => (m ? Math.floor((Date.now() - m.modificado) / MS_P
 function entidadDe(exp, maestro) {
   const tipo = exp.codigoTipo === '019' ? 'ARL' : 'EPS';
   const manual = (exp.radicacion || {}).entidad;
-  if (manual && manual.nombre) return { tipo, nombre: manual.nombre, manual: true };
   const m = maestro && maestro.porCedula.get(textoLlave(exp.cedula));
-  return { tipo, nombre: m ? (tipo === 'ARL' ? m.arl : m.eps) : '', enMaestro: !!m };
+  if (manual && manual.nombre) return { tipo, nombre: manual.nombre, manual: true, maestro: m || null };
+  return { tipo, nombre: m ? (tipo === 'ARL' ? m.arl : m.eps) : '', enMaestro: !!m, maestro: m || null };
 }
 
 /** Plazo para radicar: { limite (fecha), dias, desde, regla } según la entidad y el tipo. */
@@ -2631,10 +2662,17 @@ function reporteDeEjemplo(filas, opciones = {}) {
  * opciones.raro → títulos con otros nombres y filas de título arriba (para probar que se encuentran igual).
  */
 function maestroDeEjemplo(filas, opciones = {}) {
+  // Normal: mismas columnas del maestro del ERP (NomProConContratosGrid). Raro: otros títulos y filas arriba.
   const tabla = opciones.raro
     ? [['MAESTRO DE PERSONAL ACTIVO'], [], ['Nro. Identificación', 'Nombre completo', 'Cargo', 'Entidad Promotora de Salud', 'Administradora de Riesgos Laborales']]
-    : [['Cédula', 'Nombres y apellidos', 'Sede', 'Cargo', 'EPS', 'ARL', 'Fondo de pensiones']];
-  filas.forEach(([cedula, nombre, eps, arl]) => tabla.push(opciones.raro ? [cedula, nombre, 'AUXILIAR', eps, arl] : [cedula, nombre, 'CAÑAVERAL CENTRO', 'AUXILIAR DE CAJA', eps, arl, 'PORVENIR']));
+    : [['Tipo identificación', 'Empleado', 'Nombres', 'Apellido 2', 'Apellido 1', 'Descripcion del cargo', 'Email del contacto', 'Telefono del contacto',
+        'Descripcion C.O.', 'Id eps', 'Descripcion eps', 'Id ARL', 'Descripcion ARL', 'Id pension', 'Descripcion entidad pension', 'Fecha retiro']];
+  filas.forEach(([cedula, nombre, eps, arl], n) => {
+    const [apellido1 = '', apellido2 = '', ...nombres] = nombre.split(' ');
+    tabla.push(opciones.raro ? [cedula, nombre, 'AUXILIAR', eps, arl]
+      : ['CEDULA DE CIUDADANIA', cedula, nombres.join(' '), apellido2, apellido1, 'ASESOR DE EXPERIENCIA', 'correo@ejemplo.com', `30012345${String(n).padStart(2, '0')}`,
+         'SEDE ADMINISTRATIVA', '900000000', eps, '890903790', arl, '800224808', 'PORVENIR', '']);
+  });
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(tabla), 'Maestro');
   return new Blob([XLSX.write(libro, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -3410,6 +3448,9 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
     finally { setOcupado(false); }
   }
   const nombreEnt = textoEntidad(entidad);
+  // Celular para WhatsApp: el que escribió en la app o, si no hay, el del maestro (si es un celular de 10 dígitos)
+  const delMaestro = entidad.maestro && /^3\d{9}$/.test(entidad.maestro.telefono || '') ? entidad.maestro.telefono : '';
+  const celular = /^3\d{9}$/.test(String(e.celular || '')) ? e.celular : delMaestro;
 
   function radicar() {
     const n = numero.trim();
@@ -3427,7 +3468,7 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
   async function pedirDocumentos(como) {
     const limite = sumarDias(hoy, R.diasReenvio);
     const texto = mensajeRechazoEPS(e, entidad, (r.respuesta || {}).causa || '', limite);
-    if (como === 'whatsapp') window.open(`https://wa.me/57${e.celular}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
+    if (como === 'whatsapp') window.open(`https://wa.me/57${celular}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
     else if (!(await copiarTexto(texto))) { avisar('No se pudo copiar', 'error'); return; }
     guardar((z) => { z.radicacion.solicitud = { fecha: new Date().toISOString(), por: usuario, limite }; },
             `Pidió los documentos por el rechazo de la ${entidad.tipo} (plazo hasta ${fechaERP(limite)})`,
@@ -3466,6 +3507,7 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
       <div className="rad-estado">
         {etapa === 'por_radicar' && (<>
           <strong>{nombreEnt}{entidad.manual ? ' (escrita a mano)' : ''}</strong>
+          {entidad.maestro && entidad.maestro.retiro && <span className="vencido">En el maestro tiene fecha de retiro.</span>}
           <span className={clasePlazo}>{diasParaVencer < 0 ? `Venció el ${fechaLarga(plazo.limite)}` : diasParaVencer === 0 ? 'Vence hoy' : `Radicar a más tardar el ${fechaLarga(plazo.limite)}`}</span>
           <span>Plazo: {plazo.regla}</span>
           {(r.intentos || []).length > 0 && <span>Se radicó {plural(r.intentos.length, 'vez', 'veces')} antes y fue rechazada: va de nuevo.</span>}
@@ -3536,7 +3578,7 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
         {etapa === 'rechazada' && (<>
           {!r.solicitud && (<>
             <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => pedirDocumentos('copiar')}><Icono nombre="copiar" tamano={16} /> Copiar mensaje</button>
-            <button className="boton boton-principal boton-chico" disabled={ocupado || !e.celular} onClick={() => pedirDocumentos('whatsapp')}><Icono nombre="mensaje" tamano={16} /> Pedir por WhatsApp</button>
+            <button className="boton boton-principal boton-chico" disabled={ocupado || !celular} title={celular ? `WhatsApp al ${celular}` : 'No hay celular: copia el mensaje'} onClick={() => pedirDocumentos('whatsapp')}><Icono nombre="mensaje" tamano={16} /> Pedir por WhatsApp</button>
           </>)}
           {reenvioLlego && <button className="boton boton-principal boton-chico" onClick={() => onAbrir(x)}>Revisar el reenvío</button>}
           {reenvioVencido && <button className="boton boton-principal boton-chico" disabled={ocupado} onClick={reportarNomina}>Reportar a nómina</button>}
