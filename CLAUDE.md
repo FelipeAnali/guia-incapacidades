@@ -60,7 +60,8 @@ Librerías (desde cdnjs): React 18.2.0 UMD, Babel standalone 7.23.5, JSZip 3.10.
     mayor a 30 días).
   - Con más días ya no es prórroga.
   - Misma regla en las dos páginas.
-- **Historia clínica:** en 018 y 019 de 1 o 2 días no se pide (`diasSinHistoria`, igual en las dos páginas).
+- **Historia clínica:** en 018 de 1 o 2 días no se pide (`diasSinHistoria`, igual en las dos páginas). En 019 (ARL) se
+  pide siempre, desde 1 día.
 - Fecha final = fecha inicial + días − 1. Diagnóstico CIE-10: `^[A-Z][0-9]{2}[0-9X]?$` (sin puntos ni espacios).
 - **Datos sensibles:** el diagnóstico y la historia clínica son datos de salud. Nada se guarda en servidores.
   - El navegador del colaborador guarda el avance solo si el dispositivo es propio (7 días).
@@ -96,7 +97,8 @@ Librerías (desde cdnjs): React 18.2.0 UMD, Babel standalone 7.23.5, JSZip 3.10.
   Obligatorias (amarillo), siempre 0 (azul: J, L, S, W, X, Y), fecha de accidente solo en 019 (verde: Q),
   número de prórroga = Consec. TNL anterior CONFIRMADO, solo en prórrogas (rojo: R). Detalle en `docs/COMO_FUNCIONA.md`.
 - **Radicación EPS / ARL:** después de registrar en el ERP, cada incapacidad se radica ante su EPS (o ARL si es 019).
-  La entidad sale del maestro (cédula como texto). Un radicado por incapacidad. Etapas en `radicacion.estado`:
+  La entidad sale del maestro (cédula como texto). Un radicado por incapacidad. EPS de 1 o 2 días NO se radican
+  (etapa `no_se_radica`, en Finalizadas sin número); la ARL se radica desde 1 día. Etapas en `radicacion.estado`:
   por radicar → radicada → aprobada | rechazada → (reenvío → por radicar) | nomina. Un reenvío de algo ya
   registrado, al aprobarse, vuelve a "registrada" (NO a "Para el ERP"). Detalle en `docs/COMO_FUNCIONA.md`.
 - **Carpeta de ejemplo:** "Abrir carpeta de ejemplo" crea una carpeta EN MEMORIA con datos inventados y un selector

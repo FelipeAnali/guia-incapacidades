@@ -31,8 +31,9 @@ index.html: datos + documentos  ──►  Recibidos/<cedula>_<tipo>_<fecha>.zip
    - **prórroga primero**, con la fecha final de la anterior;
    - fecha inicial, días y fecha final (se ajustan entre sí);
    - diagnóstico CIE-10, con tutorial.
-4. Documentos según el tipo (más FURIPS si fue de tránsito). En enfermedad general (018) y accidente de trabajo (019)
-   de **1 o 2 días** no se pide la historia clínica (`diasSinHistoria: 2`, igual en las dos páginas).
+4. Documentos según el tipo (más FURIPS si fue de tránsito). En enfermedad general (018) de **1 o 2 días** no se
+   pide la historia clínica (`diasSinHistoria: 2`, igual en las dos páginas). En accidente de trabajo (019) se pide
+   siempre: la ARL la exige desde 1 día.
 5. Descarga del ZIP y subida a OneDrive.
 
 **Archivos:**
@@ -145,6 +146,8 @@ Configuración: `CONFIG_PANEL.radicacion`.
   EPS / entidad promotora de salud; ARL / riesgos laborales) y se prefiere la descripción, no el "Id" (NIT).
   Si el colaborador no escribió celular, el WhatsApp del rechazo usa el teléfono del maestro. Si el archivo tiene más de `diasMaestroViejo` (8) días, el panel pide
   actualizarlo (se actualiza cada viernes).
+- **EPS de 1 o 2 días** (`diasSinRadicarEPS`): no se radican; quedan en "Finalizadas" como **No se radica**, sin
+  número. La **ARL** (019) se radica desde 1 día.
 - **Plazo para radicar:** desde que se registró en el ERP: `diasPlazo` (30); EPS que contiene "SURA": 15.
   Licencia de paternidad (021): 14 días desde que **inicia** la licencia.
 - **Adjuntos:** cada EPS los pide distinto: **Un PDF** (todos los documentos unidos con pdf-lib, en orden) o

@@ -728,7 +728,8 @@ SEDE ADMINISTRATIVA
   //   historiaDesdeDias → la historia clínica se pide solo si la incapacidad tiene MÁS de
   //                     diasSinHistoria días (más abajo). Con 1 o 2 días no se pide.
   // ---------------------------------------------------------------------------
-  // Incapacidades de hasta estos días NO piden historia clínica (enfermedad general y accidente de trabajo).
+  // Incapacidades por ENFERMEDAD GENERAL de hasta estos días NO piden historia clínica.
+  // (El accidente de trabajo sí la pide siempre: la ARL la exige desde 1 día.)
   // Misma regla en el panel de la gestora (CONFIG_PANEL.diasSinHistoria).
   diasSinHistoria: 2,
 
@@ -736,7 +737,7 @@ SEDE ADMINISTRATIVA
     { codigo: '018', nombre: 'Incapacidad por enfermedad general', corto: 'Enfermedad general',
       preguntaTransito: true, historiaDesdeDias: true, documentos: ['incapacidad', 'historia'] },
     { codigo: '019', nombre: 'Incapacidad por accidente de trabajo', corto: 'Accidente de trabajo',
-      fechaAccidente: true, historiaDesdeDias: true, documentos: ['incapacidad', 'historia'] },
+      fechaAccidente: true, documentos: ['incapacidad', 'historia'] },   // ARL: siempre pide historia clínica
     { codigo: '020', nombre: 'Licencia de maternidad', corto: 'Licencia de maternidad',
       esLicencia: true, documentos: ['incapacidad', 'historia', 'nacido_vivo', 'registro_civil'] },
     { codigo: '021', nombre: 'Licencia de paternidad', corto: 'Licencia de paternidad',
@@ -1780,7 +1781,7 @@ function PantallaInicio({ alComenzar, guardadoDisponible, avisoInicial }) {
           <div className="lista">
             <div className="fila"><div className="fila-cuerpo"><div className="fila-titulo">La incapacidad o licencia</div></div></div>
             <div className="fila"><div className="fila-cuerpo"><div className="fila-titulo">La historia clínica</div>
-              <div className="fila-sub">Todas las páginas. No se pide si la incapacidad es de {CONFIG.diasSinHistoria === 1 ? '1 día' : `1 o ${CONFIG.diasSinHistoria} días`}.</div></div></div>
+              <div className="fila-sub">Todas las páginas. En enfermedad general de {CONFIG.diasSinHistoria === 1 ? '1 día' : `1 o ${CONFIG.diasSinHistoria} días`} no se pide.</div></div></div>
             <div className="fila"><div className="fila-cuerpo"><div className="fila-titulo">Otros según el caso</div>
               <div className="fila-sub">FURIPS si fue accidente de tránsito. Nacido vivo y registro civil en licencias de maternidad y paternidad.</div></div></div>
           </div>
@@ -1806,7 +1807,7 @@ function PantallaInicio({ alComenzar, guardadoDisponible, avisoInicial }) {
             <div className="aviso aviso-alerta" role="status" style={{ marginTop: 12, marginBottom: 0 }}>
               <strong>Ten todo listo antes de empezar.</strong> En un celular o computador prestado no guardamos nada
               y, si la página queda {CONFIG.minutosInactividad} minutos sin usar, se borra sola. Antes de tocar
-              "Comenzar", ten a mano tu incapacidad, la historia clínica completa (si es de más de {CONFIG.diasSinHistoria} días) y los demás documentos
+              "Comenzar", ten a mano tu incapacidad, la historia clínica completa (en enfermedad general, si es de más de {CONFIG.diasSinHistoria} días) y los demás documentos
               (en papel para tomarles foto, o ya en PDF), y haz todo de una vez.
             </div>
           )}

@@ -826,6 +826,8 @@ window.CONFIG_PANEL = {
   //   diasPlazo          → días para radicar, contados desde que se registró en el ERP (la mayoría de EPS: un mes)
   //   plazosPorEntidad   → excepciones: si el nombre de la EPS contiene "contiene", el plazo es "dias"
   //   diasPlazoPaternidad→ licencia de paternidad (021): días contados desde que INICIA la licencia
+  //   diasSinRadicarEPS  → incapacidades ante la EPS de hasta estos días NO se radican: pasan directo a
+  //                        "Finalizadas" sin número de radicado. (La ARL se radica desde 1 día.)
   //   diasAviso          → se pone en naranja cuando faltan estos días o menos
   //   diasReenvio        → días que tiene el colaborador para reenviar los documentos si la EPS rechaza
   //                        (después de eso se reporta a nómina como falta injustificada)
@@ -833,6 +835,7 @@ window.CONFIG_PANEL = {
   //   formatosPorEntidad → formatos que pide cada EPS además de los documentos (se muestran como recordatorio)
   //   motivosRechazo     → causas rápidas de rechazo de la EPS (se puede escribir otra)
   radicacion: {
+    diasSinRadicarEPS: 2,
     diasPlazo: 30,
     plazosPorEntidad: [{ contiene: 'SURA', dias: 15 }],
     diasPlazoPaternidad: 14,
@@ -854,8 +857,9 @@ window.CONFIG_PANEL = {
     hoja: 'DATOS',
   },
 
-  // Incapacidades de hasta estos días NO piden historia clínica (enfermedad general 018 y accidente de
-  // trabajo 019). Misma regla en la app del colaborador (CONFIG.diasSinHistoria).
+  // Incapacidades por ENFERMEDAD GENERAL (018) de hasta estos días NO piden historia clínica.
+  // El accidente de trabajo (019) sí la pide siempre (la ARL la exige desde 1 día).
+  // Misma regla en la app del colaborador (CONFIG.diasSinHistoria).
   diasSinHistoria: 2,
 
   // Tipos de incapacidad (mismos códigos de la app del colaborador y del ERP).
@@ -1049,13 +1053,13 @@ const ESTADOS_CERRADOS = ['registrada', 'no_procede'];
 
 /**
  * Documentos que DEBE traer una incapacidad según su tipo (FURIPS si fue de tránsito).
- * Enfermedad general y accidente de trabajo de 1 o 2 días (CONFIG.diasSinHistoria) no piden historia clínica.
+ * Enfermedad general (018) de 1 o 2 días (CONFIG.diasSinHistoria) no pide historia clínica. Accidente de trabajo sí.
  */
 function documentosRequeridos(exp) {
   const tipo = tipoPorCodigo(exp.codigoTipo);
   if (!tipo) return [];
   const dias = Number(exp.dias);
-  const sinHistoria = ['018', '019'].includes(exp.codigoTipo) && dias >= 1 && dias <= (CONFIG.diasSinHistoria || 0);
+  const sinHistoria = exp.codigoTipo === '018' && dias >= 1 && dias <= (CONFIG.diasSinHistoria || 0);
   const ids = tipo.documentos.filter((id) => id !== 'historia' || !sinHistoria);
   if (exp.codigoTipo === '018' && exp.accidenteTransito) ids.push('furips');
   return ids;
@@ -2264,10 +2268,20 @@ function textoEntidad(entidad) {
 /** Formatos extra que pide la entidad (recordatorio). */
 const formatosDe = (entidad) => CONFIG.radicacion.formatosPorEntidad.filter((f) => (entidad.nombre || '').includes(f.contiene.toUpperCase())).map((f) => f.texto);
 
-/** Etapa de la radicación: 'por_radicar' | 'radicada' | 'rechazada' | 'aprobada' | 'nomina' (o null si no aplica). */
+/** ¿Se queda sin radicar? Las de la EPS (no accidente de trabajo) de 1 o 2 días no se radican. */
+function noSeRadica(exp) {
+  const dias = Number(exp.dias);
+  return exp.codigoTipo !== '019' && dias >= 1 && dias <= (CONFIG.radicacion.diasSinRadicarEPS || 0);
+}
+
+/**
+ * Etapa de la radicación: 'por_radicar' | 'radicada' | 'rechazada' | 'aprobada' | 'nomina'
+ * | 'no_se_radica' (EPS de 1 o 2 días: finalizada sin radicado) — o null si todavía no aplica.
+ */
 function etapaRadicacion(exp) {
   if (!exp || (exp.estado !== 'registrada' && !(exp.radicacion && exp.radicacion.estado))) return null;
   const r = exp.radicacion || {};
+  if (!r.estado && noSeRadica(exp)) return 'no_se_radica';
   return r.estado || 'por_radicar';
 }
 
@@ -2762,7 +2776,10 @@ async function crearCarpetaDeEjemplo(modo) {
     await sembrar({ cedula: '1088345612', nombre: 'Jorge Iván Cardona', tipo: '021', ini: 6, dias: 14, diagnostico: 'Z390', sede: 'CAÑAVERAL CENTRO' }, 4, 'registrada', {}, '2');
     await sembrar({ cedula: '16455321', nombre: 'Óscar Hernán Vélez', tipo: '019', ini: 12, dias: 5, accidente: 0, diagnostico: 'S602', sede: 'CEDI' }, 8, 'registrada', {}, '6');
     await sembrar({ cedula: '31567890', nombre: 'Luz Marina Ortiz', tipo: '018', ini: 30, dias: 3, diagnostico: 'J029', sede: 'CAÑAVERAL PANCE' }, 28, 'registrada', {}, '9');
-    await sembrar({ cedula: '1144778899', nombre: 'Kevin Andrés Rentería', tipo: '018', ini: 15, dias: 2, diagnostico: 'A09X', sede: 'CEDI' }, 13, 'registrada', {}, '4');
+    await sembrar({ cedula: '1144778899', nombre: 'Kevin Andrés Rentería', tipo: '018', ini: 15, dias: 4, diagnostico: 'A09X', sede: 'CEDI' }, 13, 'registrada', {}, '4');
+    // EPS de 1 día: no se radica (pasa sola a Finalizadas). ARL de 1 día: sí se radica.
+    await sembrar({ cedula: '1112223334', nombre: 'Sandra Milena Arias', tipo: '018', ini: 9, dias: 1, diagnostico: 'J069', sede: 'CAÑAVERAL PANCE' }, 6, 'registrada', {}, '3');
+    await sembrar({ cedula: '1112223335', nombre: 'Brayan Stiven Mosquera', tipo: '019', ini: 4, dias: 1, accidente: 0, diagnostico: 'S610', sede: 'CEDI' }, 2, 'registrada', {}, '2');
     await sembrar({ cedula: '29876543', nombre: 'Rosa Elena Quiñones', tipo: '018', ini: 22, dias: 4, diagnostico: 'M545', sede: 'CAÑAVERAL VALLE DEL LILI' }, 20, 'registrada', {}, '7');
     /** Pone la radicación de ejemplo a una incapacidad ya sembrada. */
     async function ponerRadicacion(cedula, radicacion) {
@@ -2811,6 +2828,8 @@ async function crearCarpetaDeEjemplo(modo) {
       ['1130654987', 'CANO JHON FREDY', 'NUEVA EPS', 'ARL SURA'],
       ['1005987321', 'MUÑOZ NATALIA ANDREA', 'EPS SURA', 'ARL SURA'],
       ['94456789', 'HENAO CARLOS MARIO', 'EPS SURA', 'ARL SURA'],
+      ['1112223334', 'ARIAS SANDRA MILENA', 'EPS SANITAS S.A.', 'SEGUROS DE VIDA SURAMERICANA'],
+      ['1112223335', 'MOSQUERA BRAYAN STIVEN', 'NUEVA EPS', 'SEGUROS DE VIDA SURAMERICANA'],
     ]), hace(1));
     fuentes.poner('Reporte_TNL_septiembre.xlsx', reporteDeEjemplo([['1144098765', 'GOMEZ LAURA', 1, 1, '018', 200, 1, null]]), hace(40));
     fuentes.poner(`Reporte_TNL_${hoyTexto()}.xlsx`, reporteDeEjemplo([
@@ -2848,7 +2867,9 @@ async function crearCarpetaDeEjemplo(modo) {
       ['1088345612', 'CARDONA JORGE IVAN', 1, 2, '021', 6, 14, null],
       ['16455321', 'VELEZ OSCAR HERNAN', 1, 6, '019', 12, 5, null],
       ['31567890', 'ORTIZ LUZ MARINA', 1, 9, '018', 30, 3, null],
-      ['1144778899', 'RENTERIA KEVIN ANDRES', 1, 4, '018', 15, 2, null],
+      ['1144778899', 'RENTERIA KEVIN ANDRES', 1, 4, '018', 15, 4, null],
+      ['1112223334', 'ARIAS SANDRA MILENA', 1, 3, '018', 9, 1, null],
+      ['1112223335', 'MOSQUERA BRAYAN STIVEN', 1, 2, '019', 4, 1, null],
       ['29876543', 'QUIÑONES ROSA ELENA', 1, 7, '018', 22, 4, null],
     ]), hace(0, 0.2));
     // Alerta de Carlos: ya la envió Power Automate (así queda el archivo después del flujo)
@@ -3350,7 +3371,7 @@ function Radicacion({ lista, maestro, usuario, avisar, onAbrir, onCambio }) {
   const porRadicar = de('por_radicar').sort((a, b) => a.plazo.limite.localeCompare(b.plazo.limite));
   const radicadas = de('radicada').sort((a, b) => (a.e.radicacion.fecha || '').localeCompare(b.e.radicacion.fecha || ''));
   const rechazadas = de('rechazada');
-  const finalizadas = de('aprobada', 'nomina');
+  const finalizadas = de('aprobada', 'nomina', 'no_se_radica');
   const paraNomina = de('nomina');
   const diasMaestro = diasDelMaestro(maestro);
 
@@ -3551,6 +3572,10 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
         {etapa === 'aprobada' && (<>
           <strong className="bien">Aprobada por la {entidad.tipo}</strong>
           <span>{nombreEnt} · radicado {r.numero} del {fechaLarga(r.fecha)} · aprobada el {fechaLarga((r.respuesta || {}).fecha)}</span>
+        </>)}
+        {etapa === 'no_se_radica' && (<>
+          <strong className="bien">No se radica</strong>
+          <span>{nombreEnt} · las incapacidades ante la EPS de {R.diasSinRadicarEPS === 1 ? '1 día' : `1 o ${R.diasSinRadicarEPS} días`} no se radican.</span>
         </>)}
         {etapa === 'nomina' && (<>
           <strong className="vencido">Reportada a nómina</strong>
