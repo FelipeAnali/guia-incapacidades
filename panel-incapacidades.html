@@ -3433,7 +3433,7 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
   const r = e.radicacion || {};
   const R = CONFIG.radicacion;
   const hoy = hoyTexto();
-  const [modo, setModo] = useState(null);          // null | 'radicar' | 'rechazo' | 'entidad'
+  const [modo, setModo] = useState(null);          // null | 'radicar' | 'rechazo' | 'entidad' | 'editar'
   const [numero, setNumero] = useState('');
   const [fecha, setFecha] = useState(hoy);
   const [causa, setCausa] = useState('');
@@ -3471,6 +3471,17 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
     guardar((z) => { Object.assign(z.radicacion, { estado: 'radicada', numero: n, fecha, por: usuario }); },
             `Radicó ante ${nombreEnt} (radicado ${n})`, `Radicada: queda esperando respuesta de la ${entidad.tipo}`);
   }
+  /** Corrige el número o la fecha del radicado (si se escribió mal), en cualquier etapa después de radicar. */
+  function abrirEditar() { setNumero(r.numero || ''); setFecha(r.fecha || hoy); setModo('editar'); }
+  function corregirRadicado() {
+    const n = numero.trim();
+    if (!n) { avisar('Escribe el número de radicado', 'error'); return; }
+    if (!leerFecha(fecha)) { avisar('Escribe una fecha válida', 'error'); return; }
+    if (n === r.numero && fecha === r.fecha) { setModo(null); return; }
+    const cambios = [n !== r.numero ? `número ${r.numero} → ${n}` : '', fecha !== r.fecha ? `fecha ${fechaERP(r.fecha)} → ${fechaERP(fecha)}` : ''].filter(Boolean).join('; ');
+    guardar((z) => { z.radicacion.numero = n; z.radicacion.fecha = fecha; }, `Corrigió el radicado (${cambios})`, 'Radicado corregido');
+  }
+
   function rechazar() {
     const motivo = causa.trim();
     if (!motivo) { avisar('Escribe la causa del rechazo', 'error'); return; }
@@ -3532,14 +3543,14 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
         </>)}
         {etapa === 'rechazada' && (<>
           <strong>Rechazada: {(r.respuesta || {}).causa}</strong>
-          <span>{nombreEnt} · radicado {r.numero} · {fechaLarga((r.respuesta || {}).fecha)}</span>
+          <span>{nombreEnt} · radicado {r.numero} del {fechaLarga(r.fecha)} · rechazada el {fechaLarga((r.respuesta || {}).fecha)}</span>
           {!r.solicitud && <span className="por-vencer">Falta pedirle los documentos al colaborador.</span>}
           {r.solicitud && !reenvioLlego && <span className={reenvioVencido ? 'vencido' : ''}>Documentos pedidos el {fechaLarga(fechaATexto(new Date(r.solicitud.fecha)))} · {reenvioVencido ? `venció el ${fechaLarga(r.solicitud.limite)}` : `tiene hasta el ${fechaLarga(r.solicitud.limite)}`}</span>}
           {reenvioLlego && <span className="bien">Llegó el reenvío: revísalo en la ficha y apruébalo para radicarla de nuevo.</span>}
         </>)}
         {etapa === 'aprobada' && (<>
           <strong className="bien">Aprobada por la {entidad.tipo}</strong>
-          <span>{nombreEnt} · radicado {r.numero} · {fechaLarga((r.respuesta || {}).fecha)}</span>
+          <span>{nombreEnt} · radicado {r.numero} del {fechaLarga(r.fecha)} · aprobada el {fechaLarga((r.respuesta || {}).fecha)}</span>
         </>)}
         {etapa === 'nomina' && (<>
           <strong className="vencido">Reportada a nómina</strong>
@@ -3572,7 +3583,23 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
             <button className="boton boton-principal boton-chico" disabled={ocupado || !numero.trim()} onClick={radicar}>Guardar</button>
           </div>
         )}
-        {etapa === 'radicada' && modo !== 'rechazo' && (<>
+        {modo === 'editar' && (
+          <div className="rad-form">
+            <span className="fila-sub">Corregir radicado:</span>
+            <input className="numero" value={numero} onChange={(ev) => setNumero(ev.target.value)} placeholder="N.º de radicado" aria-label="Número de radicado corregido" autoFocus
+                   onKeyDown={(ev) => ev.key === 'Enter' && corregirRadicado()} />
+            <input type="date" value={fecha} max={hoy} onChange={(ev) => setFecha(ev.target.value)} aria-label="Fecha de radicación" />
+            <button className="boton boton-texto boton-chico" onClick={() => setModo(null)}>Cancelar</button>
+            <button className="boton boton-principal boton-chico" disabled={ocupado || !numero.trim()} onClick={corregirRadicado}>Guardar</button>
+          </div>
+        )}
+        {/* Corregir el radicado: en cualquier etapa después de radicar (también en las finalizadas) */}
+        {etapa !== 'por_radicar' && r.numero && !modo && (
+          <button className="boton boton-texto boton-chico" disabled={ocupado} onClick={abrirEditar} title="Si el número o la fecha del radicado quedaron mal">
+            <Icono nombre="corregir" tamano={16} /> Editar radicado
+          </button>
+        )}
+        {etapa === 'radicada' && !modo && (<>
           <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => setModo('rechazo')}>Rechazada</button>
           <button className="boton boton-principal boton-chico" disabled={ocupado}
                   onClick={() => guardar((z) => { z.radicacion.estado = 'aprobada'; z.radicacion.respuesta = { fecha: hoy, por: usuario }; },
@@ -3587,7 +3614,7 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
             <button className="boton boton-principal boton-chico" disabled={ocupado || !causa.trim()} onClick={rechazar}>Guardar rechazo</button>
           </div>
         </>)}
-        {etapa === 'rechazada' && (<>
+        {etapa === 'rechazada' && !modo && (<>
           {!r.solicitud && (<>
             <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => pedirDocumentos('copiar')}><Icono nombre="copiar" tamano={16} /> Copiar mensaje</button>
             <button className="boton boton-principal boton-chico" disabled={ocupado || !celular} title={celular ? `WhatsApp al ${celular}` : 'No hay celular: copia el mensaje'} onClick={() => pedirDocumentos('whatsapp')}><Icono nombre="mensaje" tamano={16} /> Pedir por WhatsApp</button>

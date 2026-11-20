@@ -151,7 +151,8 @@ Configuración: `CONFIG_PANEL.radicacion`.
   **Por separado** (ZIP con un PDF por documento). El nombre no importa.
 - **Formatos extra** (`formatosPorEntidad`): Comfenalco siempre pide su formato de radicación; Salud Total a veces
   el de descarte de evento laboral. Por ahora el panel solo lo recuerda.
-- **Un radicado por incapacidad.** Etapas en `incapacidad.json` → `radicacion.estado`:
+- **Un radicado por incapacidad.** "Editar radicado" corrige el número o la fecha en cualquier etapa después de
+  radicar (también finalizadas); queda en la bitácora con el valor anterior. Etapas en `incapacidad.json` → `radicacion.estado`:
 
 | Etapa | Qué pasa | Siguiente |
 |---|---|---|
