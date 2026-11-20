@@ -41,7 +41,8 @@ modo oscuro. La app del colaborador en computador se ve en 3 columnas (Tu avance
 | `docs/PENDIENTES.md` | Lo que falta. |
 
 Librerías (desde cdnjs): React 18.2.0 UMD, Babel standalone 7.23.5, JSZip 3.10.1, pdf.js 3.11.174 y jsPDF 2.5.1
-(app del colaborador), SheetJS xlsx 0.18.5 (panel, para leer el reporte del ERP).
+(app del colaborador), SheetJS xlsx 0.18.5 (panel, para leer el reporte del ERP y el maestro) y pdf-lib 1.17.1
+(panel, para unir los PDF que se radican en la EPS).
 
 ## Reglas que no se pueden romper (contrato entre las dos páginas)
 
@@ -70,7 +71,7 @@ Librerías (desde cdnjs): React 18.2.0 UMD, Babel standalone 7.23.5, JSZip 3.10.
 - **Carpetas** (dentro de "Incapacidades"):
   - `Recibidos/` (llegan los ZIP; `Recibidos/Procesados/` los ya procesados);
   - `Colaboradores/<cedula>_<NOMBRE>/<fechaInicial>_<tipo>/` (PDF + `incapacidad.json`; reemplazos en `_anteriores/`);
-  - `Fuentes/` (reporte de TNL del ERP, se usa el más reciente);
+  - `Fuentes/` (reporte de TNL del ERP y maestro de personal; de cada uno se usa el más reciente, se reconocen por sus columnas);
   - `Alertas/Pendientes|Enviadas|Errores/`;
   - `control.json` en la raíz.
 - `incapacidad.json` tiene:
@@ -93,6 +94,10 @@ Librerías (desde cdnjs): React 18.2.0 UMD, Babel standalone 7.23.5, JSZip 3.10.
 - **Plano del ERP:** "Para el ERP" descarga el Excel de carga de TNL (hoja `DATOS`, 28 columnas A–AB).
   Obligatorias (amarillo), siempre 0 (azul: J, L, S, W, X, Y), fecha de accidente solo en 019 (verde: Q),
   número de prórroga = Consec. TNL anterior CONFIRMADO, solo en prórrogas (rojo: R). Detalle en `docs/COMO_FUNCIONA.md`.
+- **Radicación EPS / ARL:** después de registrar en el ERP, cada incapacidad se radica ante su EPS (o ARL si es 019).
+  La entidad sale del maestro (cédula como texto). Un radicado por incapacidad. Etapas en `radicacion.estado`:
+  por radicar → radicada → aprobada | rechazada → (reenvío → por radicar) | nomina. Un reenvío de algo ya
+  registrado, al aprobarse, vuelve a "registrada" (NO a "Para el ERP"). Detalle en `docs/COMO_FUNCIONA.md`.
 - **Carpeta de ejemplo:** "Abrir carpeta de ejemplo" crea una carpeta EN MEMORIA con datos inventados y un selector
   Normal / Peor caso / Vacío / Uno. Úsala para probar todo cambio.
 

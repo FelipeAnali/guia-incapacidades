@@ -12,6 +12,10 @@ index.html: datos + documentos  ──►  Recibidos/<cedula>_<tipo>_<fecha>.zip
                                         PDF + incapacidad.json                      copiar datos al ERP,
                                                                                     enlazar prórroga, registrar
                                       Fuentes/<reporte TNL>.xlsx  ◄── exporta del ERP la gestora
+                                      Fuentes/<maestro>.xlsx      ◄── maestro de personal (cada viernes): EPS y ARL
+                                                                                    ▼
+                                                                    Radicación: adjuntos → portal EPS/ARL →
+                                                                    radicado → aprobada / rechazada → nómina
                                       Alertas/Pendientes/<id>.json ──► Power Automate ──► correo
                                       Alertas/Enviadas | Errores   ◄──────────────┘
                                       control.json (días a mano, alertas no enviadas)
@@ -72,7 +76,7 @@ index.html: datos + documentos  ──►  Recibidos/<cedula>_<tipo>_<fecha>.zip
 | `Recibidos/` | Llegan los ZIP (también se leen los `.zip` sueltos en la raíz y 2 niveles de subcarpetas). |
 | `Recibidos/Procesados/` | ZIP ya procesados (no se borran). |
 | `Colaboradores/<cedula>_<NOMBRE>/<fechaInicial>_<tipo>/` | PDF + `incapacidad.json`. Versiones reemplazadas en `_anteriores/<fecha_hora>/`. |
-| `Fuentes/` | Reporte de TNL del ERP (`.xlsx`, `.xls`, `.csv`). Se usa el **más reciente**; se cachea por nombre + fecha. |
+| `Fuentes/` | Reporte de TNL del ERP y **maestro de personal** (`.xlsx`, `.xls`, `.csv`). De cada uno se usa el **más reciente**: el reporte es el archivo con las columnas de TNL; el maestro, el que tiene cédula + EPS. Se cachean por nombre + fecha. |
 | `Alertas/Pendientes`, `Enviadas`, `Errores` | Archivos de alerta para Power Automate. |
 | `control.json` | `acumulados` (días escritos a mano) y `alertas` (las que se decidió no enviar). Se escribe leyendo siempre la versión más reciente. |
 
@@ -126,6 +130,33 @@ los títulos salen con los mismos colores del formato (`COLORES_PLANO`); la B (c
 
 Si a una incapacidad le falta algo obligatorio (diagnóstico, fecha del accidente en 019 o Consec. TNL anterior
 en una prórroga, o un consecutivo sugerido sin confirmar), sale en rojo en la tabla y **no entra al plano** hasta que se complete en la ficha.
+
+### Radicación ante la EPS / ARL
+Pantalla **"Radicación EPS"**. Entran las incapacidades **registradas en el ERP**. Código: sección 7c del panel
+(`leerMaestro`, `entidadDe`, `plazoRadicacion`, `adjuntosParaRadicar`, `Radicacion`, `CasoRadicacion`).
+Configuración: `CONFIG_PANEL.radicacion`.
+
+- **Entidad:** accidente de trabajo (019) → **ARL**; las demás → **EPS**. Sale del **maestro** cruzando la cédula
+  como texto. Si no está, la gestora la escribe a mano (`radicacion.entidad`).
+- **Maestro:** se buscan las columnas por nombre (cédula / identificación / documento; EPS / entidad promotora
+  de salud; ARL / riesgos laborales). Si el archivo tiene más de `diasMaestroViejo` (8) días, el panel pide
+  actualizarlo (se actualiza cada viernes).
+- **Plazo para radicar:** desde que se registró en el ERP: `diasPlazo` (30); EPS que contiene "SURA": 15.
+  Licencia de paternidad (021): 14 días desde que **inicia** la licencia.
+- **Adjuntos:** cada EPS los pide distinto: **Un PDF** (todos los documentos unidos con pdf-lib, en orden) o
+  **Por separado** (ZIP con un PDF por documento). El nombre no importa.
+- **Formatos extra** (`formatosPorEntidad`): Comfenalco siempre pide su formato de radicación; Salud Total a veces
+  el de descarte de evento laboral. Por ahora el panel solo lo recuerda.
+- **Un radicado por incapacidad.** Etapas en `incapacidad.json` → `radicacion.estado`:
+
+| Etapa | Qué pasa | Siguiente |
+|---|---|---|
+| (vacío) Por radicar | Registrada en el ERP | Descargar adjuntos, radicar y escribir el número |
+| `radicada` | Esperando respuesta | Aprobada o Rechazada (con causa) |
+| `aprobada` | Fin | — |
+| `rechazada` | Hay que pedir documentos | WhatsApp con fecha límite (`diasReenvio`) → `solicitud` |
+| ↳ llega el reenvío | Vuelve a "En revisión" | Al aprobarla queda **registrada** otra vez (no vuelve a "Para el ERP") y por radicar; lo anterior queda en `intentos` |
+| ↳ venció el plazo | No reenvió | **Reportar a nómina** → `nomina`; "Reporte para nómina" descarga el Excel (sin diagnóstico) |
 
 ### Reporte del ERP (TNL)
 - Se buscan las columnas por nombre:

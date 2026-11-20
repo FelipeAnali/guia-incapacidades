@@ -28,6 +28,10 @@
     6. REPORTES ERP: lee el reporte de TNL que se deja en "Fuentes" (el más
        reciente), arma las cadenas de prórrogas y hace la doble verificación
        de lo que se marcó registrado. Sin reporte, todo funciona a mano.
+    6b. RADICACIÓN EPS/ARL: después de registrar en el ERP, agrupa por EPS (sale del
+       MAESTRO de personal que se deja en "Fuentes" cada viernes), descarga los adjuntos
+       (un PDF o por separado), guarda el número de radicado y la respuesta (aprobada /
+       rechazada), pide los documentos al colaborador y, si no reenvía, lo reporta a nómina.
     7. ALERTAS 30/150: cadenas de prórrogas seguidas que pasan 30 días o se
        acercan/pasan 150. Se marcan como gestionadas (queda en control.json).
 
@@ -58,8 +62,9 @@
     6. PROCESAR        Pasar un ZIP a la carpeta de la incapacidad.
     7. INCAPACIDADES   Listado, revisiones automáticas, datos para el ERP.
     7b. REPORTE ERP    Leer el reporte de TNL, cadenas, alertas, verificación.
+    7c. RADICACIÓN     Maestro de personal (EPS/ARL), plazos y estados de la radicación, adjuntos.
     8. EJEMPLO         Carpeta falsa en memoria con datos inventados.
-    9. PANTALLAS       Inicio, Bandeja, listados, Para el ERP, Ficha, Alertas, Reportes.
+    9. PANTALLAS       Inicio, Bandeja, listados, Para el ERP, Radicación, Ficha, Alertas, Reportes.
    10. APP PRINCIPAL   Decide qué pantalla mostrar.
   ============================================================================
 -->
@@ -710,6 +715,31 @@
     .gestionada { text-align: left; }
   }
   .segmento-filtro { display: inline-flex; }
+
+  /* Radicación ante la EPS / ARL */
+  .rad-grupo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 14px 16px 10px; border-bottom: 0.5px solid var(--separador); background: var(--tinte-suave); }
+  .rad-grupo strong { font-size: 16px; }
+  .rad-grupo span { font-size: 13px; color: var(--texto-2); }
+  .rad-fila { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, auto); gap: 16px; align-items: center; padding: 14px 16px; }
+  .rad-fila + .rad-fila::before { content: ''; position: absolute; top: 0; right: 0; left: 16px; height: 0.5px; background: var(--separador); }
+  .rad-estado { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--texto-2); min-width: 0; overflow-wrap: anywhere; }
+  .rad-estado strong { font-size: 15px; color: var(--texto); }
+  .rad-estado .vencido { color: var(--rojo); font-weight: 700; }
+  .rad-estado .por-vencer { color: var(--alerta-texto); font-weight: 700; }
+  .rad-estado .bien { color: var(--tinte); font-weight: 700; }
+  .rad-formato { align-self: flex-start; font-size: 12px; padding: 2px 8px; border-radius: 8px; background: var(--alerta-fondo); color: var(--alerta-texto); }
+  .rad-acciones { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+  .rad-form { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; width: 100%; }
+  .rad-form input { font: inherit; font-size: 15px; padding: 8px 10px; border-radius: 10px; border: 0.5px solid var(--separador); background: var(--fondo); color: var(--texto); min-width: 0; }
+  .rad-form input.numero { width: 160px; }
+  .rad-form input.causa { flex: 1 1 220px; }
+  .rad-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; width: 100%; }
+  .rad-chips button { font: inherit; font-size: 12px; padding: 4px 9px; border-radius: 12px; border: 0; background: var(--relleno); color: var(--texto); cursor: pointer; }
+  .rad-maestro { margin: 0 0 14px; font-size: 14px; }
+  @media (max-width: 1100px) {
+    .rad-fila { grid-template-columns: minmax(0, 1fr); }
+    .rad-acciones, .rad-form, .rad-chips { justify-content: flex-start; }
+  }
   .segmento-filtro button { padding: 7px 14px; }
 
   /* Reportes ERP: cifras de la doble verificación */
@@ -788,6 +818,31 @@ window.CONFIG_PANEL = {
   diasNormalesProrroga: 7,
   diasMaximosProrroga: 30,
 
+  // RADICACIÓN ANTE LA EPS / ARL (pantalla "Radicación"). Después de registrar en el ERP, cada incapacidad
+  // se radica en el portal de su EPS (o de la ARL si es accidente de trabajo); la entidad sale del MAESTRO.
+  //   diasPlazo          → días para radicar, contados desde que se registró en el ERP (la mayoría de EPS: un mes)
+  //   plazosPorEntidad   → excepciones: si el nombre de la EPS contiene "contiene", el plazo es "dias"
+  //   diasPlazoPaternidad→ licencia de paternidad (021): días contados desde que INICIA la licencia
+  //   diasAviso          → se pone en naranja cuando faltan estos días o menos
+  //   diasReenvio        → días que tiene el colaborador para reenviar los documentos si la EPS rechaza
+  //                        (después de eso se reporta a nómina como falta injustificada)
+  //   diasMaestroViejo   → el maestro se actualiza cada viernes: si tiene más días, el panel avisa
+  //   formatosPorEntidad → formatos que pide cada EPS además de los documentos (se muestran como recordatorio)
+  //   motivosRechazo     → causas rápidas de rechazo de la EPS (se puede escribir otra)
+  radicacion: {
+    diasPlazo: 30,
+    plazosPorEntidad: [{ contiene: 'SURA', dias: 15 }],
+    diasPlazoPaternidad: 14,
+    diasAviso: 3,
+    diasReenvio: 5,
+    diasMaestroViejo: 8,
+    formatosPorEntidad: [
+      { contiene: 'COMFENALCO', texto: 'Formato de radicación de incapacidades (siempre)' },
+      { contiene: 'SALUD TOTAL', texto: 'Formato para descarte de evento laboral (solo si la EPS lo pide)' },
+    ],
+    motivosRechazo: ['Documento ilegible', 'Falta la historia clínica', 'Incapacidad sin firma o sin sello', 'Fechas no coinciden', 'Usuario no afiliado o retirado'],
+  },
+
   // PLANO DEL ERP (archivo Excel para cargar los TNL sin digitar). Ver "Para el ERP".
   //   empresa → columna EMPRESA del plano.
   //   hoja    → nombre de la hoja del Excel (el formato del ERP usa "DATOS").
@@ -844,6 +899,8 @@ window.CONFIG_PANEL = {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- pdf-lib: une la incapacidad y la historia clínica en un solo PDF para radicar en la EPS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
@@ -1655,11 +1712,26 @@ async function leerReporte(raiz, cache) {
   }
   if (!archivos.length) return null;
   archivos.sort((a, b) => b.archivo.lastModified - a.archivo.lastModified);
-  const elegido = archivos[0];
-  // Si es el mismo archivo de la vez pasada, no se vuelve a leer (17.000 filas tardan un par de segundos)
-  if (cache && cache.archivo === elegido.nombre && cache.modificado === elegido.archivo.lastModified) return cache;
+  // En Fuentes también está el MAESTRO de personal: se usa el archivo más reciente que SÍ sea reporte de TNL.
+  for (const elegido of archivos) {
+    const clave = `${elegido.nombre}|${elegido.archivo.lastModified}`;
+    if (NO_SON_REPORTE.has(clave)) continue;
+    // Si es el mismo archivo de la vez pasada, no se vuelve a leer (17.000 filas tardan un par de segundos)
+    if (cache && cache.archivo === elegido.nombre && cache.modificado === elegido.archivo.lastModified) return cache;
+    const r = await leerUnReporte(elegido, archivos.length - 1);
+    if (r.noEsReporte) { NO_SON_REPORTE.add(clave); continue; }
+    return r;
+  }
+  return { archivo: archivos[0].nombre, modificado: archivos[0].archivo.lastModified, otros: archivos.length - 1, filas: [], ignoradas: 0, avisos: [], totalFilas: 0,
+           errores: [`En "${C.fuentes}" no hay un reporte de TNL: ningún archivo tiene las columnas ${COLUMNAS_OBLIGATORIAS.map((c) => COLUMNAS_REPORTE[c][0]).join(', ')}.`] };
+}
 
-  const r = { archivo: elegido.nombre, modificado: elegido.archivo.lastModified, otros: archivos.length - 1, filas: [], ignoradas: 0, errores: [], avisos: [], totalFilas: 0 };
+/** Archivos de Fuentes que ya se sabe que NO son reporte de TNL (por ejemplo, el maestro). Llave: nombre|fecha. */
+const NO_SON_REPORTE = new Set();
+
+/** Lee UN archivo como reporte de TNL. Si no tiene sus columnas, devuelve { noEsReporte: true }. */
+async function leerUnReporte(elegido, otros) {
+  const r = { archivo: elegido.nombre, modificado: elegido.archivo.lastModified, otros, filas: [], ignoradas: 0, errores: [], avisos: [], totalFilas: 0 };
   let libro;
   try { libro = XLSX.read(await elegido.archivo.arrayBuffer(), { type: 'array', cellDates: false }); }
   catch (e) { r.errores.push(`No se pudo abrir "${elegido.nombre}": ${e.message}`); return r; }
@@ -1679,10 +1751,7 @@ async function leerReporte(raiz, cache) {
     }
     if (tabla) break;
   }
-  if (!tabla) {
-    r.errores.push(`"${elegido.nombre}" no parece el reporte de TNL: no se encontraron las columnas ${COLUMNAS_OBLIGATORIAS.map((c) => COLUMNAS_REPORTE[c][0]).join(', ')}.`);
-    return r;
-  }
+  if (!tabla) { r.noEsReporte = true; return r; }
   if (mapa.contrato === undefined) r.avisos.push('El reporte no trae la columna "Contrato": se asume un solo contrato por colaborador.');
   if (mapa.anterior === undefined) r.avisos.push('El reporte no trae "Consec.TNL Anterior": no se pueden armar las cadenas de prórrogas.');
 
@@ -2041,6 +2110,209 @@ function verificarContraReporte(ctx, reporte) {
   return r;
 }
 
+/* ==========================================================================
+   7c. MAESTRO DE PERSONAL Y RADICACIÓN ANTE LA EPS / ARL
+   El MAESTRO de personal se deja en "Fuentes" (se actualiza cada viernes).
+   De ahí sale la EPS y la ARL de cada colaborador (cruzando por cédula, como TEXTO).
+   Después de registrar en el ERP, cada incapacidad se radica ante su entidad:
+     - accidente de trabajo (019) → ARL; las demás → EPS.
+   Lo de la radicación se guarda en incapacidad.json → "radicacion":
+     { estado: (vacío = por radicar) | 'radicada' | 'aprobada' | 'rechazada' | 'nomina',
+       entidad: { tipo, nombre } (solo si la gestora la escribió a mano),
+       numero, fecha, por            → el radicado que dio el portal de la EPS
+       respuesta: { fecha, por, causa }
+       solicitud: { fecha, por, limite } → cuándo se le pidieron los documentos al colaborador
+       nomina: { fecha, por }        → reportada a nómina como falta injustificada
+       intentos: [ ... ]             → radicaciones anteriores que fueron rechazadas }
+   ========================================================================== */
+
+/** Columnas que se buscan en el maestro (se aceptan varios nombres). */
+const esColumnaCedula = (t) => ['cedula', 'numerocedula', 'cedulaempleado', 'identificacion', 'numeroidentificacion', 'nroidentificacion',
+  'documento', 'numerodocumento', 'nrodocumento', 'nodocumento', 'numdocumento', 'documentoidentidad', 'cc'].includes(t) || /^(cedula|identificacion|nrodoc|numerodedocumento)/.test(t);
+const esColumnaEPS = (t) => t === 'eps' || /eps|entidadpromotora|entidaddesalud|saludentidad/.test(t);
+const esColumnaARL = (t) => t === 'arl' || /arl|riesgoslaborales|riesgosprofesionales/.test(t);
+const esColumnaNombre = (t) => /^(nombre|nombres|nombrecompleto|nombresyapellidos|empleado|nombreempleado)$/.test(t);
+/** Entre varias columnas que sirven, prefiere la del NOMBRE de la entidad (no la del código o el NIT). */
+function mejorColumna(titulos, sirve) {
+  const opciones = titulos.map((t, j) => ({ t, j })).filter((o) => sirve(o.t));
+  if (!opciones.length) return undefined;
+  const nombre = opciones.find((o) => !/cod|nit|id$|numero|nro/.test(o.t));
+  return (nombre || opciones[0]).j;
+}
+
+/** Archivos de Fuentes que ya se sabe que NO son maestro (por ejemplo, el reporte de TNL). */
+const NO_SON_MAESTRO = new Set();
+
+/**
+ * Lee el maestro más reciente de Fuentes (el archivo que tenga cédula + EPS).
+ * Devuelve null si no hay, o { archivo, modificado, porCedula: Map(cedula → { eps, arl, nombre }), total, sinEPS, columnas, avisos[] }.
+ */
+async function leerMaestro(raiz, cache) {
+  const fuentes = await subcarpeta(raiz, C.fuentes);
+  const archivos = [];
+  for (const item of await listar(fuentes)) {
+    if (item.tipo === 'file' && /\.(xlsx|xlsm|xls|csv)$/i.test(item.nombre) && !item.nombre.startsWith('~$')) {
+      archivos.push({ nombre: item.nombre, archivo: await item.handle.getFile() });
+    }
+  }
+  archivos.sort((a, b) => b.archivo.lastModified - a.archivo.lastModified);
+  for (const elegido of archivos) {
+    const clave = `${elegido.nombre}|${elegido.archivo.lastModified}`;
+    if (NO_SON_MAESTRO.has(clave)) continue;
+    if (cache && cache.archivo === elegido.nombre && cache.modificado === elegido.archivo.lastModified) return cache;
+    let libro;
+    try { libro = XLSX.read(await elegido.archivo.arrayBuffer(), { type: 'array', cellDates: false }); }
+    catch (e) { NO_SON_MAESTRO.add(clave); continue; }
+    for (const nombreHoja of libro.SheetNames) {
+      const filas = XLSX.utils.sheet_to_json(libro.Sheets[nombreHoja], { header: 1, raw: true, defval: '' });
+      for (let i = 0; i < Math.min(15, filas.length); i++) {
+        const titulos = filas[i].map(normalizarColumna);
+        const col = { cedula: mejorColumna(titulos, esColumnaCedula), eps: mejorColumna(titulos, esColumnaEPS), arl: mejorColumna(titulos, esColumnaARL), nombre: mejorColumna(titulos, esColumnaNombre) };
+        if (col.cedula === undefined || col.eps === undefined) continue;
+        const porCedula = new Map();
+        const texto = (f, c) => (col[c] === undefined ? '' : String(f[col[c]] ?? '').replace(/\s+/g, ' ').trim().toUpperCase());
+        for (let k = i + 1; k < filas.length; k++) {
+          const cedula = textoLlave(filas[k][col.cedula]);
+          if (!cedula) continue;
+          porCedula.set(cedula, { eps: texto(filas[k], 'eps'), arl: texto(filas[k], 'arl'), nombre: texto(filas[k], 'nombre') });
+        }
+        const r = { archivo: elegido.nombre, modificado: elegido.archivo.lastModified, porCedula, total: porCedula.size,
+                    sinEPS: [...porCedula.values()].filter((v) => !v.eps).length, avisos: [],
+                    columnas: { cedula: filas[i][col.cedula], eps: filas[i][col.eps], arl: col.arl === undefined ? '' : filas[i][col.arl] } };
+        if (col.arl === undefined) r.avisos.push('El maestro no trae una columna de ARL: los accidentes de trabajo saldrán "sin ARL".');
+        return r;
+      }
+    }
+    NO_SON_MAESTRO.add(clave);
+  }
+  return null;
+}
+
+/** Días que tiene el maestro (por la fecha del archivo). */
+const diasDelMaestro = (m) => (m ? Math.floor((Date.now() - m.modificado) / MS_POR_DIA) : null);
+
+/** ¿Ante quién se radica? { tipo: 'EPS'|'ARL', nombre, deMaestro } — nombre vacío si no se sabe. */
+function entidadDe(exp, maestro) {
+  const tipo = exp.codigoTipo === '019' ? 'ARL' : 'EPS';
+  const manual = (exp.radicacion || {}).entidad;
+  if (manual && manual.nombre) return { tipo, nombre: manual.nombre, manual: true };
+  const m = maestro && maestro.porCedula.get(textoLlave(exp.cedula));
+  return { tipo, nombre: m ? (tipo === 'ARL' ? m.arl : m.eps) : '', enMaestro: !!m };
+}
+
+/** Plazo para radicar: { limite (fecha), dias, desde, regla } según la entidad y el tipo. */
+function plazoRadicacion(exp, entidad) {
+  const R = CONFIG.radicacion;
+  if (exp.codigoTipo === '021') {
+    return { limite: sumarDias(exp.fechaInicial, R.diasPlazoPaternidad), regla: `${R.diasPlazoPaternidad} días desde que inicia la licencia` };
+  }
+  const desde = exp.erp && exp.erp.registrado ? fechaATexto(new Date(exp.erp.registrado)) : hoyTexto();
+  const especial = entidad.tipo === 'EPS' && R.plazosPorEntidad.find((p) => (entidad.nombre || '').includes(p.contiene.toUpperCase()));
+  const dias = especial ? especial.dias : R.diasPlazo;
+  return { limite: sumarDias(desde, dias), regla: `${dias} días desde que se registró en el ERP` };
+}
+
+/** Nombre para mostrar: "EPS SURA", "NUEVA EPS", "ARL SURA" (sin repetir "EPS" si ya lo trae). */
+function textoEntidad(entidad) {
+  if (!entidad.nombre) return `${entidad.tipo} sin definir`;
+  return entidad.nombre.includes(entidad.tipo) ? entidad.nombre : `${entidad.tipo} ${entidad.nombre}`;
+}
+
+/** Formatos extra que pide la entidad (recordatorio). */
+const formatosDe = (entidad) => CONFIG.radicacion.formatosPorEntidad.filter((f) => (entidad.nombre || '').includes(f.contiene.toUpperCase())).map((f) => f.texto);
+
+/** Etapa de la radicación: 'por_radicar' | 'radicada' | 'rechazada' | 'aprobada' | 'nomina' (o null si no aplica). */
+function etapaRadicacion(exp) {
+  if (!exp || (exp.estado !== 'registrada' && !(exp.radicacion && exp.radicacion.estado))) return null;
+  const r = exp.radicacion || {};
+  return r.estado || 'por_radicar';
+}
+
+/** Mensaje de WhatsApp cuando la EPS/ARL rechaza (sin diagnóstico). */
+function mensajeRechazoEPS(exp, entidad, causa, limite) {
+  const primerNombre = nombreBonito(exp.nombre || '').split(/\s+/)[0] || '';
+  return [
+    `Hola ${primerNombre}, te escribimos de Gestión Humana de Supertiendas Cañaveral por tu ${nombreTipo(exp.codigoTipo).toLowerCase()} que empezó el ${fechaLarga(exp.fechaInicial)}.`,
+    '',
+    `La ${entidad.nombre ? textoEntidad(entidad) : entidad.tipo} la rechazó por este motivo: ${causa}.`,
+    '',
+    `Necesitamos que envíes de nuevo los documentos corregidos a más tardar el ${fechaLarga(limite)}. Entra otra vez a la página de incapacidades${CONFIG.enlaceAppColaborador ? ` (${CONFIG.enlaceAppColaborador})` : ''}, llena los mismos datos, sube los documentos y envía el paquete.`,
+    '',
+    'Si no los recibimos antes de esa fecha, esos días se reportarán a nómina como no justificados. ¡Gracias!',
+  ].join('\n');
+}
+
+/**
+ * Cambia una incapacidad desde una lista (sin abrir la ficha): la lee de nuevo,
+ * aplica el cambio, lo anota en la bitácora y la guarda (con el control de choques).
+ */
+async function cambiarIncapacidad(x, usuario, modificar, accion) {
+  const actual = await leerExpediente(x.carpeta);
+  const copia = JSON.parse(JSON.stringify(actual));
+  copia.radicacion = copia.radicacion || {};
+  modificar(copia);
+  anotar(copia, usuario, accion);
+  return guardarExpediente(x.carpeta, copia);
+}
+
+/** Los PDF de una incapacidad, en el orden de los documentos: [{ id, nombre, archivo (File) }]. */
+async function pdfsDeIncapacidad(x) {
+  const exp = x.expediente, lista = [];
+  for (const d of CONFIG.documentos) {
+    const doc = (exp.documentos || {})[d.id];
+    if (!doc || !doc.archivo || doc.revision === 'rechazado') continue;
+    try { lista.push({ id: d.id, nombre: doc.archivo, archivo: await (await x.carpeta.getFileHandle(doc.archivo)).getFile() }); }
+    catch (e) { /* si el archivo no está en la carpeta, se salta */ }
+  }
+  return lista;
+}
+
+/**
+ * Adjuntos para radicar en el portal. Cada EPS los pide distinto:
+ *   'unico'     → un solo PDF con todos los documentos (incapacidad + historia clínica…), en orden
+ *   'separados' → un ZIP con un PDF por documento
+ * Devuelve { blob, nombre }.
+ */
+async function adjuntosParaRadicar(x, como) {
+  const exp = x.expediente;
+  const pdfs = await pdfsDeIncapacidad(x);
+  if (!pdfs.length) throw new Error('No se encontraron los PDF en la carpeta de la incapacidad.');
+  const base = `${exp.cedula}_${exp.codigoTipo}_${exp.fechaInicial}`;
+  if (como === 'unico') {
+    if (!window.PDFLib) throw new Error('No cargó la librería para unir PDF. Revisa la conexión a internet y recarga la página.');
+    const unido = await PDFLib.PDFDocument.create();
+    for (const p of pdfs) {
+      const doc = await PDFLib.PDFDocument.load(await p.archivo.arrayBuffer(), { ignoreEncryption: true });
+      (await unido.copyPages(doc, doc.getPageIndices())).forEach((pagina) => unido.addPage(pagina));
+    }
+    return { blob: new Blob([await unido.save()], { type: 'application/pdf' }), nombre: `${base}.pdf` };
+  }
+  const zip = new JSZip();
+  pdfs.forEach((p) => zip.file(p.nombre, p.archivo));
+  return { blob: await zip.generateAsync({ type: 'blob', compression: 'STORE' }), nombre: `${base}.zip` };
+}
+
+/** Descarga un archivo (Blob) con ese nombre. */
+function descargarBlob(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = nombre; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/** Reporte para nómina (faltas injustificadas). Sin diagnóstico. Devuelve un Blob xlsx. */
+function reporteNomina(lista, maestro) {
+  const tabla = [['Cédula', 'Nombres y apellidos', 'Concepto', 'Tipo', 'Fecha inicial', 'Fecha final', 'Días', 'Consec. TNL', 'Entidad', 'Radicado', 'Causa del rechazo', 'Fecha límite para reenviar', 'Reportada a nómina', 'Por']];
+  lista.forEach((x) => {
+    const e = x.expediente, r = e.radicacion || {}, ent = entidadDe(e, maestro);
+    tabla.push([e.cedula, (e.nombre || '').toUpperCase(), e.codigoTipo, nombreTipo(e.codigoTipo), fechaERP(e.fechaInicial), fechaERP(e.fechaFinal), Number(e.dias) || '',
+      (e.erp || {}).consecTNL || '', textoEntidad(ent), r.numero || '', (r.respuesta || {}).causa || '',
+      r.solicitud ? fechaERP(r.solicitud.limite) : '', r.nomina ? fechaERP(fechaATexto(new Date(r.nomina.fecha))) : '', r.nomina ? r.nomina.por : '']);
+  });
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(tabla), 'Para nómina');
+  return new Blob([XLSX.write(libro, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
 /* ---------------------------------------------------------------------------
    PLANO DEL ERP
    Archivo Excel con el formato de carga de TNL del ERP: una fila por incapacidad,
@@ -2354,6 +2626,20 @@ function reporteDeEjemplo(filas, opciones = {}) {
   return new Blob([XLSX.write(libro, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
+/**
+ * Maestro de personal de ejemplo. filas = [cedula, nombre, eps, arl].
+ * opciones.raro → títulos con otros nombres y filas de título arriba (para probar que se encuentran igual).
+ */
+function maestroDeEjemplo(filas, opciones = {}) {
+  const tabla = opciones.raro
+    ? [['MAESTRO DE PERSONAL ACTIVO'], [], ['Nro. Identificación', 'Nombre completo', 'Cargo', 'Entidad Promotora de Salud', 'Administradora de Riesgos Laborales']]
+    : [['Cédula', 'Nombres y apellidos', 'Sede', 'Cargo', 'EPS', 'ARL', 'Fondo de pensiones']];
+  filas.forEach(([cedula, nombre, eps, arl]) => tabla.push(opciones.raro ? [cedula, nombre, 'AUXILIAR', eps, arl] : [cedula, nombre, 'CAÑAVERAL CENTRO', 'AUXILIAR DE CAJA', eps, arl, 'PORVENIR']));
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(tabla), 'Maestro');
+  return new Blob([XLSX.write(libro, { type: 'array', bookType: 'xlsx' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
 /** Crea la carpeta de ejemplo según el modo: normal, peor, vacio, uno. */
 async function crearCarpetaDeEjemplo(modo) {
   const raiz = new CarpetaMemoria('Incapacidades (ejemplo)');
@@ -2421,6 +2707,32 @@ async function crearCarpetaDeEjemplo(modo) {
                   2, 'aprobada', {}, '', {});
     await sembrar({ cedula: '1151234567', nombre: 'Paola Andrea Lozano', tipo: '018', ini: 5, dias: 6, diagnostico: 'M545', sede: 'CAÑAVERAL PANCE', prorroga: true, finAnterior: sumarDias(hoyTexto(), -6) }, 2, 'aprobada');
 
+    // Para probar la RADICACIÓN ante la EPS / ARL: registradas en el ERP en cada etapa
+    // (la EPS y la ARL salen del maestro de ejemplo que se deja en Fuentes, más abajo)
+    await sembrar({ cedula: '1088345612', nombre: 'Jorge Iván Cardona', tipo: '021', ini: 6, dias: 14, diagnostico: 'Z390', sede: 'CAÑAVERAL CENTRO' }, 4, 'registrada', {}, '2');
+    await sembrar({ cedula: '16455321', nombre: 'Óscar Hernán Vélez', tipo: '019', ini: 12, dias: 5, accidente: 0, diagnostico: 'S602', sede: 'CEDI' }, 8, 'registrada', {}, '6');
+    await sembrar({ cedula: '31567890', nombre: 'Luz Marina Ortiz', tipo: '018', ini: 30, dias: 3, diagnostico: 'J029', sede: 'CAÑAVERAL PANCE' }, 28, 'registrada', {}, '9');
+    await sembrar({ cedula: '1144778899', nombre: 'Kevin Andrés Rentería', tipo: '018', ini: 15, dias: 2, diagnostico: 'A09X', sede: 'CEDI' }, 13, 'registrada', {}, '4');
+    await sembrar({ cedula: '29876543', nombre: 'Rosa Elena Quiñones', tipo: '018', ini: 22, dias: 4, diagnostico: 'M545', sede: 'CAÑAVERAL VALLE DEL LILI' }, 20, 'registrada', {}, '7');
+    /** Pone la radicación de ejemplo a una incapacidad ya sembrada. */
+    async function ponerRadicacion(cedula, radicacion) {
+      const inc = (await leerIncapacidades(raiz)).find((x) => x.expediente && x.expediente.cedula === cedula);
+      inc.expediente.radicacion = radicacion;
+      await guardarExpediente(inc.carpeta, inc.expediente);
+    }
+    const diaHace = (n) => sumarDias(hoyTexto(), -n);
+    // Andrés: radicado en Nueva EPS, esperando respuesta
+    await ponerRadicacion('1107554433', { estado: 'radicada', numero: '2026-NEPS-045182', fecha: diaHace(5), por: GESTORA });
+    // Yesica: Comfenalco la rechazó, se pidieron los documentos y venció el plazo → reportar a nómina
+    await ponerRadicacion('1143987654', { estado: 'radicada', numero: 'CF-88231', fecha: diaHace(9), por: GESTORA,
+      respuesta: { fecha: diaHace(7), por: GESTORA, causa: 'Falta la historia clínica' }, solicitud: { fecha: new Date(hace(7)).toISOString(), por: GESTORA, limite: diaHace(2) } });
+    await ponerRadicacion('1143987654', { estado: 'rechazada', numero: 'CF-88231', fecha: diaHace(9), por: GESTORA,
+      respuesta: { fecha: diaHace(7), por: GESTORA, causa: 'Falta la historia clínica' }, solicitud: { fecha: new Date(hace(7)).toISOString(), por: GESTORA, limite: diaHace(2) } });
+    // Luz Marina: Salud Total la aprobó (finalizada)
+    await ponerRadicacion('31567890', { estado: 'aprobada', numero: 'ST-2026-77120', fecha: diaHace(20), por: GESTORA, respuesta: { fecha: diaHace(6), por: GESTORA } });
+    // Rosa: Salud Total la rechazó hoy; falta pedirle los documentos
+    await ponerRadicacion('29876543', { estado: 'rechazada', numero: 'ST-2026-80455', fecha: diaHace(12), por: GESTORA, respuesta: { fecha: diaHace(0), por: GESTORA, causa: 'Documento ilegible' } });
+
     // Lo que acaba de llegar a la bandeja
     const prorroga = { ...martha, ini: 10, dias: 7, prorroga: true, finAnterior: sumarDias(hoyTexto(), -11) };
     recibidos.poner(nombreZip(prorroga), await zipDeEjemplo(prorroga), hace(0, 5));
@@ -2436,6 +2748,20 @@ async function crearCarpetaDeEjemplo(modo) {
 
     // Reporte del ERP en la carpeta Fuentes (uno viejo y uno nuevo: se usa el nuevo)
     const fuentes = await subcarpeta(raiz, C.fuentes);
+    // Maestro de personal (de aquí sale la EPS y la ARL). Kevin NO está, para ver el caso "sin EPS".
+    fuentes.poner('Maestro_personal.xlsx', maestroDeEjemplo([
+      ['31945220', 'CARDENAS MARTHA LUCIA', 'EPS SURA', 'ARL SURA'],
+      ['1107554433', 'ROJAS ANDRES FELIPE', 'NUEVA EPS', 'ARL SURA'],
+      ['1143987654', 'MINA YESICA LORENA', 'COMFENALCO VALLE EPS', 'ARL SURA'],
+      ['1088345612', 'CARDONA JORGE IVAN', 'COMFENALCO VALLE EPS', 'ARL SURA'],
+      ['16455321', 'VELEZ OSCAR HERNAN', 'NUEVA EPS', 'ARL SURA'],
+      ['31567890', 'ORTIZ LUZ MARINA', 'SALUD TOTAL EPS', 'ARL SURA'],
+      ['29876543', 'QUIÑONES ROSA ELENA', 'SALUD TOTAL EPS', 'ARL SURA'],
+      ['1193456712', 'OSPINA DANIELA', 'EPS SANITAS', 'ARL SURA'],
+      ['1130654987', 'CANO JHON FREDY', 'NUEVA EPS', 'ARL SURA'],
+      ['1005987321', 'MUÑOZ NATALIA ANDREA', 'EPS SURA', 'ARL SURA'],
+      ['94456789', 'HENAO CARLOS MARIO', 'EPS SURA', 'ARL SURA'],
+    ]), hace(1));
     fuentes.poner('Reporte_TNL_septiembre.xlsx', reporteDeEjemplo([['1144098765', 'GOMEZ LAURA', 1, 1, '018', 200, 1, null]]), hace(40));
     fuentes.poner(`Reporte_TNL_${hoyTexto()}.xlsx`, reporteDeEjemplo([
       // Martha: cadena 10 → 11 → 12 (35 días); la prórroga de la bandeja la lleva a 42
@@ -2468,6 +2794,12 @@ async function crearCarpetaDeEjemplo(modo) {
       ['1107554433', 'ROJAS ANDRES FELIPE', 1, 3, '018', 25, 4, null],
       // Wilmer: el 8 es prórroga del 7, que ya no está en el histórico
       ['1112345678', 'CAICEDO WILMER ANDRES', 1, 8, '018', 14, 10, 7],
+      // Registradas que están en radicación
+      ['1088345612', 'CARDONA JORGE IVAN', 1, 2, '021', 6, 14, null],
+      ['16455321', 'VELEZ OSCAR HERNAN', 1, 6, '019', 12, 5, null],
+      ['31567890', 'ORTIZ LUZ MARINA', 1, 9, '018', 30, 3, null],
+      ['1144778899', 'RENTERIA KEVIN ANDRES', 1, 4, '018', 15, 2, null],
+      ['29876543', 'QUIÑONES ROSA ELENA', 1, 7, '018', 22, 4, null],
     ]), hace(0, 0.2));
     // Alerta de Carlos: ya la envió Power Automate (así queda el archivo después del flujo)
     const idCarlos = idAlerta(`94456789|${sumarDias(hoyTexto(), -48)}`, 'a30');
@@ -2531,6 +2863,14 @@ async function crearCarpetaDeEjemplo(modo) {
   (await subcarpeta(carpetaAlertas, C.alertasErrores)).poner(`${idLarga}.json`, new Blob([JSON.stringify({ id: idLarga, tipo: 'a150', estado: 'error', error: 'Send an email (V2): The specified object was not found in the store., The process failed to get the correct properties.' })]), hace(0, 3));
   (await subcarpeta(carpetaAlertas, C.alertasPendientes)).poner('archivo_raro.json', new Blob(['{ esto no es json']), hace(1));
   (await subcarpeta(raiz, C.fuentes)).poner('reporte tnl (3).xlsx', reporteDeEjemplo(filasPeor, { titulosEn: 2, fechasTexto: true, diasConComa: true }), hace(0, 1));
+  // Maestro viejo (12 días: el panel debe pedir que lo actualicen), con títulos raros, una EPS de nombre
+  // larguísimo, una cédula sin EPS y otras que no están en el maestro.
+  (await subcarpeta(raiz, C.fuentes)).poner('MAESTRO ACTIVOS (copia).xlsx', maestroDeEjemplo([
+    [String(1000000000 + 4 * 7919), 'PERSONA 4', 'ENTIDAD PROMOTORA DE SALUD SANITAS S.A.S. - REGIMEN CONTRIBUTIVO SUCURSAL VALLE DEL CAUCA', 'POSITIVA COMPAÑIA DE SEGUROS'],
+    [String(1000000000 + 10 * 7919), 'PERSONA 10', 'EPS SURA', 'ARL SURA'],
+    [String(1000000000 + 16 * 7919), 'PERSONA 16', '', ''],
+    [String(1000000000 + 22 * 7919), 'PERSONA 22', 'COOMEVA', ''],
+  ], { raro: true }), hace(12));
   raiz.poner('1400000003_019_en_la_raiz.zip', await zipDeEjemplo({ cedula: '1400000003', nombre: 'Lina Marcela Gil', tipo: '019', ini: 1, dias: 8, accidente: 1, diagnostico: 'S620' }), hace(0, 8));
   return raiz;
 }
@@ -2667,6 +3007,7 @@ function BarraLateral({ vista, setVista, cifras, usuario, carpeta, esEjemplo, on
       <Item id="incapacidades" icono="lista" texto="Por revisar" cifra={cifras.revisar} />
       <Item id="erp" icono="erp" texto="Para el ERP" cifra={cifras.erp} />
       <Item id="todas" icono="archivo" texto="Todas" cifra={0} />
+      <Item id="radicacion" icono="paquete" texto="Radicación EPS" cifra={cifras.radicacion} />
       <Item id="alertas" icono="reloj" texto="Alertas 30/150" cifra={cifras.alertas} />
       <Item id="reportes" icono="base" texto="Reportes ERP" cifra={cifras.reportes} />
       <Item id="ajustes" icono="ajustes" texto="Ajustes" pronto="Fase 2" />
@@ -2946,6 +3287,267 @@ function ParaERP({ lista, ctx, onAbrir, avisar }) {
   );
 }
 
+/* ---------- Radicación ante la EPS / ARL (después de registrar en el ERP) ---------- */
+function Radicacion({ lista, maestro, usuario, avisar, onAbrir, onCambio }) {
+  const [filtro, setFiltro] = useState('por_radicar');
+  const R = CONFIG.radicacion;
+  // Cada caso con su entidad (del maestro), plazo y etapa
+  const casos = lista.filter((x) => x.expediente && etapaRadicacion(x.expediente)).map((x) => {
+    const e = x.expediente, entidad = entidadDe(e, maestro);
+    return { x, e, entidad, etapa: etapaRadicacion(e), plazo: plazoRadicacion(e, entidad), formatos: formatosDe(entidad) };
+  });
+  const de = (...etapas) => casos.filter((c) => etapas.includes(c.etapa));
+  const porRadicar = de('por_radicar').sort((a, b) => a.plazo.limite.localeCompare(b.plazo.limite));
+  const radicadas = de('radicada').sort((a, b) => (a.e.radicacion.fecha || '').localeCompare(b.e.radicacion.fecha || ''));
+  const rechazadas = de('rechazada');
+  const finalizadas = de('aprobada', 'nomina');
+  const paraNomina = de('nomina');
+  const diasMaestro = diasDelMaestro(maestro);
+
+  // Por radicar: agrupadas por entidad (EPS SURA, NUEVA EPS, ARL SURA…)
+  const grupos = [];
+  porRadicar.forEach((c) => {
+    const nombre = textoEntidad(c.entidad);   // "EPS SURA"… o "EPS sin definir"
+    let g = grupos.find((x) => x.nombre === nombre);
+    if (!g) grupos.push(g = { nombre, casos: [], sinEntidad: !c.entidad.nombre });
+    g.casos.push(c);
+  });
+  grupos.sort((a, b) => (a.sinEntidad - b.sinEntidad) || a.nombre.localeCompare(b.nombre));
+
+  const visibles = filtro === 'radicadas' ? radicadas : filtro === 'rechazadas' ? rechazadas : filtro === 'finalizadas' ? finalizadas : null;
+  const fila = (c) => <CasoRadicacion key={c.x.id} c={c} usuario={usuario} avisar={avisar} onAbrir={onAbrir} onCambio={onCambio} />;
+
+  return (
+    <>
+      <header className="encabezado">
+        <div>
+          <h1>Radicación EPS / ARL</h1>
+          <p>Las incapacidades ya registradas en el ERP. Descarga los adjuntos, radícalas en el portal de la EPS (o de la ARL si es accidente de trabajo) y anota el número de radicado y la respuesta.</p>
+        </div>
+        {filtro === 'finalizadas' && (
+          <div className="acciones">
+            <button className="boton boton-secundario" disabled={!paraNomina.length}
+                    onClick={() => { descargarBlob(reporteNomina(paraNomina.map((c) => c.x), maestro), `Reporte_nomina_faltas_${hoyTexto()}.xlsx`); avisar('Reporte para nómina descargado'); }}>
+              <Icono nombre="bajar" tamano={18} /> Reporte para nómina ({paraNomina.length})
+            </button>
+          </div>
+        )}
+      </header>
+
+      {/* Estado del maestro: de ahí sale la EPS / ARL. Se actualiza cada viernes. */}
+      {!maestro ? (
+        <div className="alerta aviso rad-maestro"><strong>Falta el maestro de personal.</strong> Sin él no se sabe la EPS ni la ARL de cada colaborador. Exporta el maestro (Excel) y déjalo en la carpeta “{C.fuentes}”; luego toca “Recargar” en la Bandeja.</div>
+      ) : diasMaestro > R.diasMaestroViejo ? (
+        <div className="alerta aviso rad-maestro"><strong>El maestro tiene {plural(diasMaestro, 'día', 'días')}.</strong> Se actualiza cada viernes: exporta el nuevo y déjalo en “{C.fuentes}” para que las EPS estén al día. (Archivo: {maestro.archivo})</div>
+      ) : (
+        <div className="alerta info-plano rad-maestro">Maestro: <strong>{maestro.archivo}</strong> — {diasMaestro === 0 ? 'de hoy' : `hace ${plural(diasMaestro, 'día', 'días')}`}, {plural(maestro.total, 'colaborador', 'colaboradores')}.{maestro.avisos.map((a) => ` ${a}`)}</div>
+      )}
+
+      <div className="filtros">
+        <div className="segmento segmento-filtro" role="group" aria-label="Filtrar radicación">
+          {[['por_radicar', `Por radicar (${porRadicar.length})`], ['radicadas', `Esperando respuesta (${radicadas.length})`],
+            ['rechazadas', `Rechazadas (${rechazadas.length})`], ['finalizadas', `Finalizadas (${finalizadas.length})`]].map(([id, texto]) => (
+            <button key={id} aria-pressed={filtro === id} onClick={() => setFiltro(id)}>{texto}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tarjeta">
+        {filtro === 'por_radicar' ? (
+          !grupos.length ? <VacioRadicacion texto="No hay incapacidades por radicar. Aparecen aquí cuando las marcas “registradas en el ERP”." />
+          : grupos.map((g) => (
+            <div key={g.nombre}>
+              <div className="rad-grupo">
+                <strong>{g.nombre}</strong>
+                <span>{plural(g.casos.length, 'por radicar', 'por radicar')}{g.casos[0] ? ` · la primera vence el ${fechaLarga(g.casos[0].plazo.limite)}` : ''}</span>
+                {g.sinEntidad && <span className="aviso-doc">No están en el maestro o no tienen {g.casos[0].entidad.tipo}: escríbela en cada una.</span>}
+              </div>
+              {g.casos.map(fila)}
+            </div>
+          ))
+        ) : !visibles.length ? (
+          <VacioRadicacion texto={filtro === 'radicadas' ? 'No hay radicados esperando respuesta.' : filtro === 'rechazadas' ? 'No hay rechazos pendientes.' : 'Aún no hay radicaciones finalizadas.'} />
+        ) : visibles.map(fila)}
+      </div>
+    </>
+  );
+}
+
+function VacioRadicacion({ texto }) {
+  return <div className="vacio"><div className="icono-caja"><Icono nombre="listo" tamano={28} /></div><h3>Nada pendiente</h3><p>{texto}</p></div>;
+}
+
+/** Una incapacidad en la radicación: lo que pasa y el siguiente paso. */
+function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
+  const { x, e, entidad, etapa, plazo, formatos } = c;
+  const r = e.radicacion || {};
+  const R = CONFIG.radicacion;
+  const hoy = hoyTexto();
+  const [modo, setModo] = useState(null);          // null | 'radicar' | 'rechazo' | 'entidad'
+  const [numero, setNumero] = useState('');
+  const [fecha, setFecha] = useState(hoy);
+  const [causa, setCausa] = useState('');
+  const [nombreEntidad, setNombreEntidad] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+
+  /** Guarda un cambio en la incapacidad y recarga la lista. */
+  async function guardar(modificar, accion, textoOk) {
+    setOcupado(true);
+    try {
+      await cambiarIncapacidad(x, usuario, modificar, accion);
+      setModo(null); onCambio(); avisar(textoOk);
+      return true;
+    } catch (err) { avisar(err.message || 'No se pudo guardar', 'error'); return false; }
+    finally { setOcupado(false); }
+  }
+  async function descargar(como) {
+    setOcupado(true);
+    try {
+      const { blob, nombre } = await adjuntosParaRadicar(x, como);
+      descargarBlob(blob, nombre);
+      avisar(`Descargado ${nombre} (${tamanoLegible(blob.size)})`);
+    } catch (err) { avisar(err.message || 'No se pudieron armar los adjuntos', 'error'); }
+    finally { setOcupado(false); }
+  }
+  const nombreEnt = textoEntidad(entidad);
+
+  function radicar() {
+    const n = numero.trim();
+    if (!n) { avisar('Escribe el número de radicado que dio el portal', 'error'); return; }
+    if (!leerFecha(fecha)) { avisar('Escribe una fecha válida', 'error'); return; }
+    guardar((z) => { Object.assign(z.radicacion, { estado: 'radicada', numero: n, fecha, por: usuario }); },
+            `Radicó ante ${nombreEnt} (radicado ${n})`, `Radicada: queda esperando respuesta de la ${entidad.tipo}`);
+  }
+  function rechazar() {
+    const motivo = causa.trim();
+    if (!motivo) { avisar('Escribe la causa del rechazo', 'error'); return; }
+    guardar((z) => { Object.assign(z.radicacion, { estado: 'rechazada', respuesta: { fecha: hoy, por: usuario, causa: motivo }, solicitud: null }); },
+            `La ${entidad.tipo} rechazó la radicación: ${motivo}`, 'Rechazada: ahora pídele los documentos al colaborador');
+  }
+  async function pedirDocumentos(como) {
+    const limite = sumarDias(hoy, R.diasReenvio);
+    const texto = mensajeRechazoEPS(e, entidad, (r.respuesta || {}).causa || '', limite);
+    if (como === 'whatsapp') window.open(`https://wa.me/57${e.celular}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
+    else if (!(await copiarTexto(texto))) { avisar('No se pudo copiar', 'error'); return; }
+    guardar((z) => { z.radicacion.solicitud = { fecha: new Date().toISOString(), por: usuario, limite }; },
+            `Pidió los documentos por el rechazo de la ${entidad.tipo} (plazo hasta ${fechaERP(limite)})`,
+            como === 'whatsapp' ? `Pedido por WhatsApp. Tiene hasta el ${fechaLarga(limite)}.` : `Mensaje copiado. Tiene hasta el ${fechaLarga(limite)}.`);
+  }
+  function volverARadicar() {
+    guardar((z) => {
+      const { intentos = [], entidad: ent, ...anterior } = z.radicacion;
+      z.radicacion = { intentos: [...intentos, anterior], ...(ent ? { entidad: ent } : {}) };
+    }, 'Volvió a dejarla “por radicar”', 'Quedó otra vez por radicar');
+  }
+  function reportarNomina() {
+    guardar((z) => { z.radicacion.estado = 'nomina'; z.radicacion.nomina = { fecha: new Date().toISOString(), por: usuario }; },
+            'La reportó a nómina como falta injustificada (no reenvió los documentos a tiempo)', 'Reportada: descárgala en “Finalizadas” → Reporte para nómina');
+  }
+  function guardarEntidad() {
+    const n = nombreEntidad.trim().toUpperCase();
+    if (!n) return;
+    guardar((z) => { z.radicacion.entidad = { nombre: n }; }, `Escribió la ${entidad.tipo}: ${n}`, `${entidad.tipo} guardada`);
+  }
+
+  // Semáforo del plazo para radicar
+  const diasParaVencer = diasEntre(hoy, plazo.limite);
+  const clasePlazo = diasParaVencer < 0 ? 'vencido' : diasParaVencer <= R.diasAviso ? 'por-vencer' : 'bien';
+  const reenvioLlego = etapa === 'rechazada' && r.solicitud && ['recibida', 'revision', 'correccion'].includes(e.estado);
+  const reenvioVencido = etapa === 'rechazada' && r.solicitud && !reenvioLlego && r.solicitud.limite < hoy;
+
+  return (
+    <div className="rad-fila">
+      <div className="fila-texto">
+        <button className="enlace-archivo" style={{ alignSelf: 'flex-start', fontSize: 16, fontWeight: 600 }} onClick={() => onAbrir(x)}>{nombreBonito(e.nombre)}</button>
+        <span className="fila-sub numeros">C.C. {e.cedula} · {e.codigoTipo} {nombreTipo(e.codigoTipo)}</span>
+        <span className="fila-sub numeros">{rangoFechas(e.fechaInicial, e.fechaFinal)} · {plural(Number(e.dias) || 0, 'día', 'días')}{(e.erp || {}).consecTNL ? ` · Consec. TNL ${e.erp.consecTNL}` : ''}</span>
+      </div>
+
+      <div className="rad-estado">
+        {etapa === 'por_radicar' && (<>
+          <strong>{nombreEnt}{entidad.manual ? ' (escrita a mano)' : ''}</strong>
+          <span className={clasePlazo}>{diasParaVencer < 0 ? `Venció el ${fechaLarga(plazo.limite)}` : diasParaVencer === 0 ? 'Vence hoy' : `Radicar a más tardar el ${fechaLarga(plazo.limite)}`}</span>
+          <span>Plazo: {plazo.regla}</span>
+          {(r.intentos || []).length > 0 && <span>Se radicó {plural(r.intentos.length, 'vez', 'veces')} antes y fue rechazada: va de nuevo.</span>}
+          {formatos.map((f) => <span key={f} className="rad-formato">Lleva: {f}</span>)}
+        </>)}
+        {etapa === 'radicada' && (<>
+          <strong>Radicado {r.numero}</strong>
+          <span>{nombreEnt} · el {fechaLarga(r.fecha)}</span>
+          <span>{plural(Math.max(0, diasEntre(r.fecha, hoy)), 'día', 'días')} esperando respuesta</span>
+        </>)}
+        {etapa === 'rechazada' && (<>
+          <strong>Rechazada: {(r.respuesta || {}).causa}</strong>
+          <span>{nombreEnt} · radicado {r.numero} · {fechaLarga((r.respuesta || {}).fecha)}</span>
+          {!r.solicitud && <span className="por-vencer">Falta pedirle los documentos al colaborador.</span>}
+          {r.solicitud && !reenvioLlego && <span className={reenvioVencido ? 'vencido' : ''}>Documentos pedidos el {fechaLarga(fechaATexto(new Date(r.solicitud.fecha)))} · {reenvioVencido ? `venció el ${fechaLarga(r.solicitud.limite)}` : `tiene hasta el ${fechaLarga(r.solicitud.limite)}`}</span>}
+          {reenvioLlego && <span className="bien">Llegó el reenvío: revísalo en la ficha y apruébalo para radicarla de nuevo.</span>}
+        </>)}
+        {etapa === 'aprobada' && (<>
+          <strong className="bien">Aprobada por la {entidad.tipo}</strong>
+          <span>{nombreEnt} · radicado {r.numero} · {fechaLarga((r.respuesta || {}).fecha)}</span>
+        </>)}
+        {etapa === 'nomina' && (<>
+          <strong className="vencido">Reportada a nómina</strong>
+          <span>No reenvió los documentos a tiempo · {r.nomina ? `${r.nomina.por}, ${fechaCorta(r.nomina.fecha)}` : ''}</span>
+          <span>Rechazo: {(r.respuesta || {}).causa}</span>
+        </>)}
+      </div>
+
+      <div className="rad-acciones">
+        {etapa === 'por_radicar' && modo !== 'radicar' && modo !== 'entidad' && (<>
+          {!entidad.nombre && <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => setModo('entidad')}>Escribir {entidad.tipo}</button>}
+          <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => descargar('unico')} title="Incapacidad, historia clínica y demás en un solo PDF">Un PDF</button>
+          <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => descargar('separados')} title="Un PDF por documento, en un ZIP">Por separado</button>
+          <button className="boton boton-principal boton-chico" disabled={ocupado} onClick={() => setModo('radicar')}>Radicar</button>
+        </>)}
+        {modo === 'entidad' && (
+          <div className="rad-form">
+            <input value={nombreEntidad} onChange={(ev) => setNombreEntidad(ev.target.value)} placeholder={entidad.tipo === 'ARL' ? 'Ej. ARL SURA' : 'Ej. NUEVA EPS'} aria-label={`Nombre de la ${entidad.tipo}`} autoFocus
+                   onKeyDown={(ev) => ev.key === 'Enter' && guardarEntidad()} />
+            <button className="boton boton-texto boton-chico" onClick={() => setModo(null)}>Cancelar</button>
+            <button className="boton boton-principal boton-chico" disabled={ocupado || !nombreEntidad.trim()} onClick={guardarEntidad}>Guardar</button>
+          </div>
+        )}
+        {modo === 'radicar' && (
+          <div className="rad-form">
+            <input className="numero" value={numero} onChange={(ev) => setNumero(ev.target.value)} placeholder="N.º de radicado" aria-label="Número de radicado" autoFocus
+                   onKeyDown={(ev) => ev.key === 'Enter' && radicar()} />
+            <input type="date" value={fecha} max={hoy} onChange={(ev) => setFecha(ev.target.value)} aria-label="Fecha de radicación" />
+            <button className="boton boton-texto boton-chico" onClick={() => setModo(null)}>Cancelar</button>
+            <button className="boton boton-principal boton-chico" disabled={ocupado || !numero.trim()} onClick={radicar}>Guardar</button>
+          </div>
+        )}
+        {etapa === 'radicada' && modo !== 'rechazo' && (<>
+          <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => setModo('rechazo')}>Rechazada</button>
+          <button className="boton boton-principal boton-chico" disabled={ocupado}
+                  onClick={() => guardar((z) => { z.radicacion.estado = 'aprobada'; z.radicacion.respuesta = { fecha: hoy, por: usuario }; },
+                                         `La ${entidad.tipo} aprobó la incapacidad (radicado ${r.numero})`, 'Aprobada: la radicación terminó')}>Aprobada</button>
+        </>)}
+        {modo === 'rechazo' && (<>
+          <div className="rad-chips">{R.motivosRechazo.map((m) => <button key={m} type="button" onClick={() => setCausa(m)}>{m}</button>)}</div>
+          <div className="rad-form">
+            <input className="causa" value={causa} onChange={(ev) => setCausa(ev.target.value)} placeholder="Causa del rechazo (como la dio la EPS)" aria-label="Causa del rechazo" autoFocus
+                   onKeyDown={(ev) => ev.key === 'Enter' && rechazar()} />
+            <button className="boton boton-texto boton-chico" onClick={() => setModo(null)}>Cancelar</button>
+            <button className="boton boton-principal boton-chico" disabled={ocupado || !causa.trim()} onClick={rechazar}>Guardar rechazo</button>
+          </div>
+        </>)}
+        {etapa === 'rechazada' && (<>
+          {!r.solicitud && (<>
+            <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => pedirDocumentos('copiar')}><Icono nombre="copiar" tamano={16} /> Copiar mensaje</button>
+            <button className="boton boton-principal boton-chico" disabled={ocupado || !e.celular} onClick={() => pedirDocumentos('whatsapp')}><Icono nombre="mensaje" tamano={16} /> Pedir por WhatsApp</button>
+          </>)}
+          {reenvioLlego && <button className="boton boton-principal boton-chico" onClick={() => onAbrir(x)}>Revisar el reenvío</button>}
+          {reenvioVencido && <button className="boton boton-principal boton-chico" disabled={ocupado} onClick={reportarNomina}>Reportar a nómina</button>}
+          {r.solicitud && !reenvioLlego && <button className="boton boton-texto boton-chico" disabled={ocupado} onClick={() => pedirDocumentos('copiar')}>Copiar el mensaje otra vez</button>}
+          <button className="boton boton-texto boton-chico" disabled={ocupado} onClick={volverARadicar} title="Si los documentos llegaron por otro medio">Volver a radicar</button>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Ficha de la incapacidad: revisar documentos y ver los datos para el ERP ---------- */
 const MOTIVOS_RAPIDOS = CONFIG.motivosRechazo;
 
@@ -3069,8 +3671,18 @@ function Ficha({ x, ctx, usuario, avisar, onCambio, onControl, onCerrar }) {
 
   /* ----- Estado ----- */
   function aprobar() {
-    cambiar((e) => { e.estado = 'aprobada'; }, 'Aprobó la incapacidad', false)
-      .then((ok) => ok && avisar('Aprobada: ya aparece en “Para el ERP”'));
+    // Si ya estaba registrada en el ERP (es el reenvío por un rechazo de la EPS), no vuelve a "Para el ERP":
+    // queda registrada y otra vez "por radicar" (la radicación anterior se guarda en "intentos").
+    const yaRegistrada = !!(exp.erp && exp.erp.registrado);
+    cambiar((e) => {
+      if (!yaRegistrada) { e.estado = 'aprobada'; return; }
+      e.estado = 'registrada';
+      if (e.radicacion && e.radicacion.estado) {
+        const { intentos = [], entidad, ...anterior } = e.radicacion;
+        e.radicacion = { intentos: [...intentos, anterior], ...(entidad ? { entidad } : {}) };
+      }
+    }, yaRegistrada ? 'Aprobó el reenvío: queda otra vez por radicar ante la EPS/ARL' : 'Aprobó la incapacidad', false)
+      .then((ok) => ok && avisar(yaRegistrada ? 'Aprobada: quedó otra vez “por radicar” en Radicación' : 'Aprobada: ya aparece en “Para el ERP”'));
   }
   function registrar() {
     const n = consec.trim();
@@ -3634,7 +4246,9 @@ function HojaEnviarAlerta({ a, ctx, usuario, onCerrar, onEnviar, onDescartar }) 
 }
 
 /* ---------- Reportes del ERP (carpeta Fuentes) y doble verificación ---------- */
-function Reportes({ reporte, ctx, cargando, onRecargar, onAgregar, onAbrir, onAcumulado }) {
+function Reportes({ reporte, maestro, ctx, cargando, onRecargar, onAgregar, onAbrir, onAcumulado }) {
+  // Los otros archivos de Fuentes, sin contar el maestro de personal (que también vive ahí)
+  const otrosReportes = reporte ? (reporte.otros || 0) - (maestro && maestro.archivo !== reporte.archivo ? 1 : 0) : 0;
   const selector = useRef(null);
   const [escribiendo, setEscribiendo] = useState(null);   // { clave, dias }
   const ver = useMemo(() => (reporte && ctx.indice.hay ? verificarContraReporte(ctx, reporte) : null), [ctx, reporte]);
@@ -3702,7 +4316,7 @@ function Reportes({ reporte, ctx, cargando, onRecargar, onAgregar, onAbrir, onAc
                 <div className={`icono-caja ${reporte.errores.length ? 'malo' : ''}`}><Icono nombre={reporte.errores.length ? 'alerta' : 'base'} /></div>
                 <div className="fila-texto">
                   <span className="fila-titulo" style={{ overflowWrap: 'anywhere' }}>{reporte.archivo}</span>
-                  <span className="fila-sub">Guardado el {fechaCorta(reporte.modificado)}{reporte.otros ? ` — hay ${plural(reporte.otros, 'reporte más viejo', 'reportes más viejos')} en la carpeta que no se usan` : ''}</span>
+                  <span className="fila-sub">Guardado el {fechaCorta(reporte.modificado)}{otrosReportes > 0 ? ` — hay ${plural(otrosReportes, 'reporte más viejo', 'reportes más viejos')} en la carpeta que no se usan` : ''}</span>
                   {!reporte.errores.length && <span className="fila-pista numeros">{plural(reporte.filas.length, 'incapacidad', 'incapacidades')} de {plural(cedulas, 'colaborador', 'colaboradores')} ({plural(prorrogas, 'prórroga', 'prórrogas')}), del {fechaLarga(reporte.desde)} al {fechaLarga(reporte.hasta)}. {plural(reporte.totalFilas - reporte.filas.length, 'fila', 'filas')} de otros conceptos (vacaciones, permisos…) no cuentan.</span>}
                   {(reporte.errores.length > 0 || reporte.avisos.length > 0) && (
                     <div className="mensajes">
@@ -3834,6 +4448,8 @@ function App() {
   const [control, setControl] = useState(controlVacio()); // control.json: días escritos a mano y alertas que no se envían
   const [envios, setEnvios] = useState({});              // archivos de alerta en Alertas/Pendientes, Enviadas y Errores
   const reporteGuardado = useRef(null);                  // para no volver a leer el mismo reporte
+  const [maestro, setMaestro] = useState(null);          // maestro de personal (carpeta Fuentes): EPS y ARL
+  const maestroGuardado = useRef(null);
   const temporizador = useRef(null);
 
   // Índice del reporte y "contexto" que usan la ficha, las alertas y la verificación
@@ -3875,6 +4491,11 @@ function App() {
         console.error(e);
         setReporte({ archivo: '(no se pudo leer)', modificado: Date.now(), filas: [], errores: [`No se pudo leer el reporte: ${e.message}`], avisos: [], totalFilas: 0 });
       }
+      try {
+        const m = await leerMaestro(carpeta, maestroGuardado.current);
+        maestroGuardado.current = m;
+        setMaestro(m);
+      } catch (e) { console.error(e); setMaestro(null); }
       const revisados = [];
       for (const item of items) revisados.push({ ...item, analisis: await analizarArchivo(item, todas) });
       setBandeja(revisados);
@@ -4057,6 +4678,9 @@ function App() {
     erp: incapacidades.filter((x) => x.expediente && x.expediente.estado === 'aprobada').length,
     alertas: alertasPendientes,
     reportes: reporte && reporte.errores.length ? 1 : 0,
+    // Radicación: las que hay que radicar o pedir documentos (y el aviso del maestro viejo o faltante)
+    radicacion: incapacidades.filter((x) => x.expediente && (etapaRadicacion(x.expediente) === 'por_radicar'
+      || (etapaRadicacion(x.expediente) === 'rechazada' && !(x.expediente.radicacion || {}).solicitud))).length,
   };
   return (
     <div className="marco">
@@ -4067,8 +4691,9 @@ function App() {
         {vista === 'incapacidades' && <Incapacidades key="revisar" modo="revisar" lista={incapacidades} cargando={cargando} onAbrir={abrir} onRecargar={() => recargar()} />}
         {vista === 'todas' && <Incapacidades key="todas" modo="todas" lista={incapacidades} cargando={cargando} onAbrir={abrir} onRecargar={() => recargar()} />}
         {vista === 'erp' && <ParaERP lista={incapacidades} ctx={ctx} onAbrir={abrir} avisar={avisar} />}
+        {vista === 'radicacion' && <Radicacion lista={incapacidades} maestro={maestro} usuario={usuario} avisar={avisar} onAbrir={abrir} onCambio={recargarIncapacidades} />}
         {vista === 'alertas' && <Alertas ctx={ctx} usuario={usuario} onAbrir={abrir} onEnviar={enviarAlerta} onDescartar={descartarAlerta} onCancelar={cancelarAlerta} onReintentar={reintentarAlerta} irAReportes={() => setVista('reportes')} />}
-        {vista === 'reportes' && <Reportes reporte={reporte} ctx={ctx} cargando={cargando} onRecargar={() => recargar()} onAgregar={agregarReporte} onAbrir={abrir} onAcumulado={acumuladoDesdeReporte} />}
+        {vista === 'reportes' && <Reportes reporte={reporte} maestro={maestro} ctx={ctx} cargando={cargando} onRecargar={() => recargar()} onAgregar={agregarReporte} onAbrir={abrir} onAcumulado={acumuladoDesdeReporte} />}
       </main>
       {abierta && <Ficha key={abierta.id} x={abierta} ctx={ctx} usuario={usuario} avisar={avisar} onCambio={recargarIncapacidades} onControl={actualizarControl} onCerrar={() => setAbierta(null)} />}
       {editarNombre && <DialogoNombre actual={usuario} onGuardar={guardarNombre} onCancelar={() => setEditarNombre(false)} />}
