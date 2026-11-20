@@ -60,6 +60,7 @@ Librerías (desde cdnjs): React 18.2.0 UMD, Babel standalone 7.23.5, JSZip 3.10.
     mayor a 30 días).
   - Con más días ya no es prórroga.
   - Misma regla en las dos páginas.
+- **Historia clínica:** en 018 y 019 de 1 o 2 días no se pide (`diasSinHistoria`, igual en las dos páginas).
 - Fecha final = fecha inicial + días − 1. Diagnóstico CIE-10: `^[A-Z][0-9]{2}[0-9X]?$` (sin puntos ni espacios).
 - **Datos sensibles:** el diagnóstico y la historia clínica son datos de salud. Nada se guarda en servidores.
   - El navegador del colaborador guarda el avance solo si el dispositivo es propio (7 días).

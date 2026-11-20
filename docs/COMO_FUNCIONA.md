@@ -31,7 +31,8 @@ index.html: datos + documentos  ──►  Recibidos/<cedula>_<tipo>_<fecha>.zip
    - **prórroga primero**, con la fecha final de la anterior;
    - fecha inicial, días y fecha final (se ajustan entre sí);
    - diagnóstico CIE-10, con tutorial.
-4. Documentos según el tipo (más FURIPS si fue de tránsito).
+4. Documentos según el tipo (más FURIPS si fue de tránsito). En enfermedad general (018) y accidente de trabajo (019)
+   de **1 o 2 días** no se pide la historia clínica (`diasSinHistoria: 2`, igual en las dos páginas).
 5. Descarga del ZIP y subida a OneDrive.
 
 **Archivos:**

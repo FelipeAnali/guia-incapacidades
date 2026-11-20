@@ -720,7 +720,7 @@
   .rad-grupo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 14px 16px 10px; border-bottom: 0.5px solid var(--separador); background: var(--tinte-suave); }
   .rad-grupo strong { font-size: 16px; }
   .rad-grupo span { font-size: 13px; color: var(--texto-2); }
-  .rad-fila { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, auto); gap: 16px; align-items: center; padding: 14px 16px; }
+  .rad-fila { position: relative; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; }
   .rad-fila + .rad-fila::before { content: ''; position: absolute; top: 0; right: 0; left: 16px; height: 0.5px; background: var(--separador); }
   .rad-estado { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--texto-2); min-width: 0; overflow-wrap: anywhere; }
   .rad-estado strong { font-size: 15px; color: var(--texto); }
@@ -728,7 +728,10 @@
   .rad-estado .por-vencer { color: var(--alerta-texto); font-weight: 700; }
   .rad-estado .bien { color: var(--tinte); font-weight: 700; }
   .rad-formato { align-self: flex-start; font-size: 12px; padding: 2px 8px; border-radius: 8px; background: var(--alerta-fondo); color: var(--alerta-texto); }
-  .rad-acciones { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+  .rad-acciones { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; max-width: 520px; }
+  /* Con un formulario abierto (radicado, rechazo, entidad), las acciones bajan a su propia línea, a lo ancho */
+  .rad-acciones.abierto { grid-column: 1 / -1; max-width: none; justify-content: flex-start; padding-top: 4px; }
+  .rad-acciones.abierto .rad-form, .rad-acciones.abierto .rad-chips { justify-content: flex-start; }
   .rad-form { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; width: 100%; }
   .rad-form input { font: inherit; font-size: 15px; padding: 8px 10px; border-radius: 10px; border: 0.5px solid var(--separador); background: var(--fondo); color: var(--texto); min-width: 0; }
   .rad-form input.numero { width: 160px; }
@@ -850,6 +853,10 @@ window.CONFIG_PANEL = {
     empresa: 1,
     hoja: 'DATOS',
   },
+
+  // Incapacidades de hasta estos días NO piden historia clínica (enfermedad general 018 y accidente de
+  // trabajo 019). Misma regla en la app del colaborador (CONFIG.diasSinHistoria).
+  diasSinHistoria: 2,
 
   // Tipos de incapacidad (mismos códigos de la app del colaborador y del ERP).
   //   documentos → los que debe traer siempre; "furips" se suma si fue accidente de tránsito.
@@ -1040,11 +1047,16 @@ const nombreDocumento = (id) => (documentoPorId(id) || {}).nombre || id;
 const nombreEstado = (id) => (CONFIG.estados.find((e) => e.id === id) || {}).nombre || id;
 const ESTADOS_CERRADOS = ['registrada', 'no_procede'];
 
-/** Documentos que DEBE traer una incapacidad según su tipo (FURIPS si fue de tránsito). */
+/**
+ * Documentos que DEBE traer una incapacidad según su tipo (FURIPS si fue de tránsito).
+ * Enfermedad general y accidente de trabajo de 1 o 2 días (CONFIG.diasSinHistoria) no piden historia clínica.
+ */
 function documentosRequeridos(exp) {
   const tipo = tipoPorCodigo(exp.codigoTipo);
   if (!tipo) return [];
-  const ids = [...tipo.documentos];
+  const dias = Number(exp.dias);
+  const sinHistoria = ['018', '019'].includes(exp.codigoTipo) && dias >= 1 && dias <= (CONFIG.diasSinHistoria || 0);
+  const ids = tipo.documentos.filter((id) => id !== 'historia' || !sinHistoria);
   if (exp.codigoTipo === '018' && exp.accidenteTransito) ids.push('furips');
   return ids;
 }
@@ -2604,7 +2616,7 @@ function pdfDeEjemplo(titulo, detalle = 'Documento de ejemplo - datos inventados
 async function zipDeEjemplo(c) {
   const zip = new JSZip();
   const fechaInicial = c.fechaInicial || sumarDias(hoyTexto(), -(c.ini || 0));
-  const datos = { codigoTipo: c.tipo, accidenteTransito: !!c.transito };
+  const datos = { codigoTipo: c.tipo, accidenteTransito: !!c.transito, dias: c.dias };   // con 1 o 2 días no lleva historia
   const docs = c.docs || documentosRequeridos(datos);
   const lista = docs.map((id) => {
     const doc = documentoPorId(id);
@@ -3536,7 +3548,7 @@ function CasoRadicacion({ c, usuario, avisar, onAbrir, onCambio }) {
         </>)}
       </div>
 
-      <div className="rad-acciones">
+      <div className={`rad-acciones${modo ? ' abierto' : ''}`}>
         {etapa === 'por_radicar' && modo !== 'radicar' && modo !== 'entidad' && (<>
           {!entidad.nombre && <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => setModo('entidad')}>Escribir {entidad.tipo}</button>}
           <button className="boton boton-suave boton-chico" disabled={ocupado} onClick={() => descargar('unico')} title="Incapacidad, historia clínica y demás en un solo PDF">Un PDF</button>
